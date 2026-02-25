@@ -12,7 +12,7 @@ export const verifySession = cache(async () => {
 
   // 2. Global Security Gate (Auth)
   if (!session?.user) {
-    redirect('/login');
+    redirect('/');
   }
 
   // 3. Return only what is needed (DTO-ish)

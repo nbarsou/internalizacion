@@ -1,11 +1,14 @@
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppHeader } from '@/components/layout/app-header'; // Adjust path as needed
+import { verifySession } from '@/lib/authN';
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await verifySession();
+
   return (
     <div className="bg-muted/40 flex min-h-screen w-full flex-col">
       <AppSidebar />

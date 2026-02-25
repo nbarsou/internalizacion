@@ -2,32 +2,36 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // Added for redirection
 import { toast } from 'sonner';
 import { Loader2, Globe } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { authClient } from '@/lib/auth-client';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const router = useRouter();
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
 
-    // Create a promise that resolves after 1 second to simulate network latency
-    const loginPromise = new Promise((resolve) => setTimeout(resolve, 1000));
+    // 2. Create the promise for Better Auth
+    const promise = authClient.signIn.social({
+      provider: 'google',
+      callbackURL: '/dashboard', // Where to go after login
+    });
 
-    toast.promise(loginPromise, {
-      loading: 'Verificando credenciales institucionales...',
+    // 3. Wrap it in the Sonner toast
+    toast.promise(promise, {
+      loading: 'Conectando con Google...',
       success: () => {
-        // Redirect to the dashboard upon success
-        router.push('/dashboard');
-        return '¡Acceso correcto! Redirigiendo al portal...';
+        // Better Auth handles the redirect, but we can stop the spinner
+        // We don't set isLoading(false) here immediately because the page will reload/redirect
+        return '¡Redirigiendo...';
       },
       error: (err) => {
         setIsLoading(false);
-        return 'Error de conexión. Intente nuevamente.';
+        console.error(err);
+        return 'Error al iniciar sesión. Intente nuevamente';
       },
     });
   };

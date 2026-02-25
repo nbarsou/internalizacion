@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
 
 // All routes are protected by default, except those explicitly listed as public
-const publicRoutes = ['/login', '/'];
+const publicRoutes = ['/'];
 
 export default async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
@@ -11,12 +11,12 @@ export default async function proxy(req: NextRequest) {
 
   // If not authenticated and not a public route, redirect to /login
   if (!isPublicRoute && !sessionCookie) {
-    return NextResponse.redirect(new URL('/login', req.nextUrl));
+    return NextResponse.redirect(new URL('/', req.nextUrl));
   }
 
-  // If authenticated and trying to access a public route (except /t), redirect to /t
-  if (isPublicRoute && sessionCookie && path !== '/t') {
-    return NextResponse.redirect(new URL('/t', req.nextUrl));
+  // If authenticated and trying to access a public route (except /dashboard), redirect to /t
+  if (isPublicRoute && sessionCookie && path !== '/dashboard') {
+    return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
   }
 
   return NextResponse.next();
