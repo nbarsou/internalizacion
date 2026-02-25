@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { useSignOut } from '@/features/auth/hooks/use-sign-out';
 
 // Map paths to titles so the header updates automatically
 const PAGE_TITLES = {
@@ -30,6 +31,8 @@ const PAGE_TITLES = {
 
 export function AppHeader() {
   const pathname = usePathname();
+
+  const { signOut } = useSignOut();
 
   // Default to dashboard info if path not found, or handle logic as needed
   const currentInfo =
@@ -57,7 +60,12 @@ export function AppHeader() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Cerrar Sesión</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={signOut}
+              className="text-destructive focus:text-destructive cursor-pointer"
+            >
+              Cerrar Sesión
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
