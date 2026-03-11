@@ -7,6 +7,10 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================
+// BETTER-AUTH MODELS  (managed by BetterAuth — do not rename fields)
+// ============================================================
+
 model Session {
   id        String   @id
   expiresAt DateTime
@@ -53,6 +57,10 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+// ============================================================
+// RBAC
+// ============================================================
 
 enum Role {
   ADMIN
