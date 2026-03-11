@@ -4,6 +4,7 @@ export type Permission =
   | 'university:view'
   | 'university:edit'
   | 'university:delete'
+  | 'member:view'
   | 'member:invite'
   | 'member:remove'
   | 'member:change_role'
@@ -19,6 +20,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'university:view',
     'university:edit',
     'university:delete',
+    'member:view',
     'member:invite',
     'member:remove',
     'member:change_role',
@@ -30,6 +32,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.EDITOR]: [
     'university:view',
     'university:edit',
+    'member:view',
     'member:invite',
     'agreement:view',
     'agreement:create',
@@ -61,6 +64,7 @@ export function buildPermissions(role: Role): Record<Permission, boolean> {
     'university:view',
     'university:edit',
     'university:delete',
+    'member:view',
     'member:invite',
     'member:remove',
     'member:change_role',
