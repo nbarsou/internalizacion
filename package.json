@@ -9,7 +9,10 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "prepare": "husky",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "etl": "cd scripts && python etl/main.py",
+    "db:seed": "pnpm prisma db seed",
+    "db:sync": "pnpm run etl && pnpm prisma db push --force-reset && pnpm db:seed"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

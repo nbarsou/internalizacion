@@ -46,3 +46,11 @@ next-env.d.ts
 
 # Note Files
 scratchpad.md
+
+# python 
+scripts/.venv/
+scripts/__pycache__/
+
+# data 
+prisma/data/
+scripts/data/
