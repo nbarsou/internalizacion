@@ -3,8 +3,8 @@ import unicodedata
 from openpyxl import load_workbook
 import re
 
-convenios = "data/conveniosinternacionales.xlsx"
-referencias = "data/referencias.xlsx"
+convenios = "conveniosinternacionales.xlsx"
+referencias = "referencias.xlsx"
 archivo_salida = "universidad.xlsx"
 
 columnasconvenios = [
@@ -39,6 +39,16 @@ dfconvenio.insert(0, "id_universidad", range(1, len(dfconvenio) + 1))
 dfconvenio["¿Católica?"] = dfconvenio["¿Católica?"].fillna("NO")
 
 # -----------------------------
+# CATÁLOGO SE USA (FIJO)
+# -----------------------------
+
+df_se_usa = pd.DataFrame([
+    {"id_se_usa": 1, "descripcion": "No"},
+    {"id_se_usa": 2, "descripcion": "Poco"},
+    {"id_se_usa": 3, "descripcion": "Si"}
+])
+
+# -----------------------------
 # NORMALIZAR
 # -----------------------------
 
@@ -50,6 +60,20 @@ def normalizar(texto):
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
     return texto
 
+def mapear_se_usa(valor):
+    if pd.isna(valor):
+        return 1  # No por defecto
+
+    texto = str(valor).strip().lower()
+
+    if texto in ["Si", "si", "SI",]:
+        return 3
+    elif texto in ["Poco", "POCO"]:
+        return 2
+    else:
+        return 1
+    
+
 # -----------------------------
 # NORMALIZAR REFERENCIAS
 # -----------------------------
@@ -58,6 +82,7 @@ dfconvenio["pais_norm"] = dfconvenio["País"].map(normalizar)
 dfconvenio["region_norm"] = dfconvenio["Región"].map(normalizar)
 dfconvenio["giro_norm"] = dfconvenio["GIRO"].map(normalizar)
 dfconvenio["campus_norm"] = dfconvenio["CAMPUS TITULAR"].map(normalizar)
+dfconvenio["id_se_usa"] = dfconvenio["¿SE USA?"].apply(mapear_se_usa)
 
 dfreferencia["pais_norm"] = dfreferencia["País"].map(normalizar)
 dfreferencia["region_norm"] = dfreferencia["Región"].map(normalizar)
@@ -495,27 +520,28 @@ df_observaciones = pd.DataFrame(
 
 df_universidad = dfconvenio[[
     "id_universidad","Universidad","INICIO","VIGENCIA","CIUDAD",
-    "¿Católica?","¿SE USA?","Página Web",
+    "¿Católica?","id_se_usa","Página Web",
     "ID_pais","ID_region","ID_giro","campus_id"
 ]]
 
 # -----------------------------
-# EXPORTAR
+# EXPORTAR A CSV
 # -----------------------------
 
-with pd.ExcelWriter(archivo_salida) as writer:
-    df_universidad.to_excel(writer, sheet_name="universidad", index=False)
-    df_convenio.to_excel(writer, sheet_name="convenio", index=False)
+df_universidad.to_csv("universidad.csv", index=False, encoding="utf-8-sig")
+df_convenio.to_csv("convenio.csv", index=False, encoding="utf-8-sig")
 
-    df_tipo.drop(columns=["tipo_norm"]).to_excel(writer, sheet_name="tipo", index=False)
-    df_escuela.drop(columns=["escuela_norm"]).to_excel(writer, sheet_name="escuela", index=False)
+df_tipo.drop(columns=["tipo_norm"]).to_csv("tipo.csv", index=False, encoding="utf-8-sig")
+df_escuela.drop(columns=["escuela_norm"]).to_csv("escuela.csv", index=False, encoding="utf-8-sig")
 
-    df_conv_cve.to_excel(writer, sheet_name="convenio_cve", index=False)
-    df_observaciones.to_excel(writer, sheet_name="observaciones", index=False)
+df_conv_cve.to_csv("convenio_cve.csv", index=False, encoding="utf-8-sig")
+df_observaciones.to_csv("observaciones.csv", index=False, encoding="utf-8-sig")
 
-    # 🔥 NUEVOS CATÁLOGOS
-    df_pais.drop(columns=["pais_norm"]).to_excel(writer, sheet_name="pais", index=False)
-    df_region.drop(columns=["region_norm"]).to_excel(writer, sheet_name="region", index=False)
-    df_giro.drop(columns=["giro_norm"]).to_excel(writer, sheet_name="giro", index=False)
-    df_campus.drop(columns=["campus_norm"]).to_excel(writer, sheet_name="campus", index=False)
-    df_contacto.to_excel(writer, sheet_name="contacto", index=False)
+# 🔥 CATÁLOGOS
+df_pais.drop(columns=["pais_norm"]).to_csv("pais.csv", index=False, encoding="utf-8-sig")
+df_region.drop(columns=["region_norm"]).to_csv("region.csv", index=False, encoding="utf-8-sig")
+df_giro.drop(columns=["giro_norm"]).to_csv("giro.csv", index=False, encoding="utf-8-sig")
+df_campus.drop(columns=["campus_norm"]).to_csv("campus.csv", index=False, encoding="utf-8-sig")
+
+df_contacto.to_csv("contacto.csv", index=False, encoding="utf-8-sig")
+df_se_usa.to_csv("se_usa.csv", index=False, encoding="utf-8-sig")
