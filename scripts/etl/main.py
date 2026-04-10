@@ -500,22 +500,22 @@ df_universidad = dfconvenio[[
 ]]
 
 # -----------------------------
-# EXPORTAR
+# EXPORTAR A CSV
 # -----------------------------
 
-with pd.ExcelWriter(archivo_salida) as writer:
-    df_universidad.to_excel(writer, sheet_name="universidad", index=False)
-    df_convenio.to_excel(writer, sheet_name="convenio", index=False)
+df_universidad.to_csv("universidad.csv", index=False, encoding="utf-8-sig")
+df_convenio.to_csv("convenio.csv", index=False, encoding="utf-8-sig")
 
-    df_tipo.drop(columns=["tipo_norm"]).to_excel(writer, sheet_name="tipo", index=False)
-    df_escuela.drop(columns=["escuela_norm"]).to_excel(writer, sheet_name="escuela", index=False)
+df_tipo.drop(columns=["tipo_norm"]).to_csv("tipo.csv", index=False, encoding="utf-8-sig")
+df_escuela.drop(columns=["escuela_norm"]).to_csv("escuela.csv", index=False, encoding="utf-8-sig")
 
-    df_conv_cve.to_excel(writer, sheet_name="convenio_cve", index=False)
-    df_observaciones.to_excel(writer, sheet_name="observaciones", index=False)
+df_conv_cve.to_csv("convenio_cve.csv", index=False, encoding="utf-8-sig")
+df_observaciones.to_csv("observaciones.csv", index=False, encoding="utf-8-sig")
 
-    # 🔥 NUEVOS CATÁLOGOS
-    df_pais.drop(columns=["pais_norm"]).to_excel(writer, sheet_name="pais", index=False)
-    df_region.drop(columns=["region_norm"]).to_excel(writer, sheet_name="region", index=False)
-    df_giro.drop(columns=["giro_norm"]).to_excel(writer, sheet_name="giro", index=False)
-    df_campus.drop(columns=["campus_norm"]).to_excel(writer, sheet_name="campus", index=False)
-    df_contacto.to_excel(writer, sheet_name="contacto", index=False)
+# 🔥 CATÁLOGOS
+df_pais.drop(columns=["pais_norm"]).to_csv("pais.csv", index=False, encoding="utf-8-sig")
+df_region.drop(columns=["region_norm"]).to_csv("region.csv", index=False, encoding="utf-8-sig")
+df_giro.drop(columns=["giro_norm"]).to_csv("giro.csv", index=False, encoding="utf-8-sig")
+df_campus.drop(columns=["campus_norm"]).to_csv("campus.csv", index=False, encoding="utf-8-sig")
+
+df_contacto.to_csv("contacto.csv", index=False, encoding="utf-8-sig")
