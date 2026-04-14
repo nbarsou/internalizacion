@@ -48,9 +48,10 @@ next-env.d.ts
 scratchpad.md
 
 # python 
-scripts/.venv/
-scripts/__pycache__/
+etl/.venv/
+etl/__pycache__/
 
 # data 
 prisma/data/
-scripts/data/
+etl/data/
+etl/output
