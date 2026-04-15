@@ -841,7 +841,7 @@ def transform(
             make_obs(
                 "INFO",
                 "excel_comment",
-                text.strip(),
+                "in column " + row[CommentCol.COLUMN_SOURCE] + ":" + text.strip(),
                 university_id=row[CommentCol.ROW_ID],
             )
         )
