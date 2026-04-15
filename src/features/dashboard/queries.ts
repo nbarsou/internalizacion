@@ -1,22 +1,42 @@
 // features/dashboard/queries.ts
 import 'server-only';
 
+import { prisma } from '@/lib/prisma';
+import { notDeleted } from '@/lib/db-filters';
+
+// ── Agreements by Campus ──────────────────────────────────────────────────────
+
 export interface AgreementData {
   campus: string;
   agreements: number;
 }
 
-const AGREEMENT_DATA: AgreementData[] = [
-  { campus: 'norte', agreements: 120 },
-  { campus: 'sur', agreements: 85 },
-  { campus: 'mex', agreements: 45 },
-  { campus: 'redAnahuac', agreements: 10 },
-];
-
 export async function getAgreementStats(): Promise<AgreementData[]> {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  return AGREEMENT_DATA;
+  const campuses = await prisma.refCampus.findMany({
+    select: {
+      name: true,
+      universities: {
+        where: notDeleted,
+        select: {
+          _count: { select: { agreements: { where: notDeleted } } },
+        },
+      },
+    },
+  });
+
+  return campuses
+    .map((c) => ({
+      campus: c.name,
+      agreements: c.universities.reduce(
+        (sum, u) => sum + u._count.agreements,
+        0
+      ),
+    }))
+    .filter((c) => c.agreements > 0)
+    .sort((a, b) => b.agreements - a.agreements);
 }
+
+// ── Growth Over Time ──────────────────────────────────────────────────────────
 
 export interface GrowthData {
   month: string;
@@ -24,205 +44,210 @@ export interface GrowthData {
   pending: number;
 }
 
-const GROWTH_DATA: GrowthData[] = [
-  { month: 'Ene', active: 80, pending: 5 },
-  { month: 'Feb', active: 85, pending: 8 },
-  { month: 'Mar', active: 92, pending: 12 },
-  { month: 'Abr', active: 95, pending: 10 },
-  { month: 'May', active: 105, pending: 15 },
-  { month: 'Jun', active: 112, pending: 8 },
-  { month: 'Jul', active: 112, pending: 4 },
-  { month: 'Ago', active: 120, pending: 20 },
-  { month: 'Sep', active: 135, pending: 18 },
-];
-
 export async function getGrowthStats(): Promise<GrowthData[]> {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return GROWTH_DATA;
+  const agreements = await prisma.agreement.findMany({
+    where: notDeleted,
+    select: { createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  // Group by month (e.g., "Jan 2024")
+  const grouped = agreements.reduce(
+    (acc, curr) => {
+      const month = curr.createdAt.toLocaleDateString('es-ES', {
+        month: 'short',
+        year: 'numeric',
+      });
+      if (!acc[month]) acc[month] = { active: 0, pending: 0 };
+      acc[month].active += 1;
+      return acc;
+    },
+    {} as Record<string, { active: number; pending: number }>
+  );
+
+  return Object.entries(grouped).map(([month, data]) => ({
+    month,
+    active: data.active,
+    pending: data.pending, // If you have a real 'pending' status, you can filter by it above
+  }));
 }
+
+// ── Agreements by Country ─────────────────────────────────────────────────────
 
 export interface CountryData {
   country: string;
   agreements: number;
 }
 
-const COUNTRY_DATA: CountryData[] = [
-  { country: 'España', agreements: 45 },
-  { country: 'EUA', agreements: 32 },
-  { country: 'Francia', agreements: 28 },
-  { country: 'Alemania', agreements: 24 },
-  { country: 'Italia', agreements: 18 },
-];
-
 export async function getCountryStats(): Promise<CountryData[]> {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  return COUNTRY_DATA;
+  const countries = await prisma.refCountry.findMany({
+    select: {
+      name: true,
+      universities: {
+        where: notDeleted,
+        select: {
+          _count: { select: { agreements: { where: notDeleted } } },
+        },
+      },
+    },
+  });
+
+  return countries
+    .map((c) => ({
+      country: c.name,
+      agreements: c.universities.reduce(
+        (sum, u) => sum + u._count.agreements,
+        0
+      ),
+    }))
+    .filter((c) => c.agreements > 0)
+    .sort((a, b) => b.agreements - a.agreements)
+    .slice(0, 10); // Top 10 countries
 }
+
+// ── Expiring Agreements ───────────────────────────────────────────────────────
 
 export interface ExpiryData {
   range: string;
   count: number;
 }
 
-const EXPIRY_DATA: ExpiryData[] = [
-  // Red: Immediate urgency
-  { range: '1_month', count: 2 },
-  // Yellow: Medium urgency
-  { range: '3_months', count: 5 },
-  // Green: Low urgency
-  { range: '6_months', count: 12 },
-];
-
 export async function getExpiringAgreements(): Promise<ExpiryData[]> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  return EXPIRY_DATA;
+  const now = new Date();
+  const addMonths = (date: Date, months: number) => {
+    const d = new Date(date);
+    d.setMonth(d.getMonth() + months);
+    return d;
+  };
+
+  const sixMonths = addMonths(now, 6);
+  const eightMonths = addMonths(now, 8);
+  const year = addMonths(now, 12);
+
+  const [one, three, six] = await Promise.all([
+    prisma.agreement.count({
+      where: {
+        ...notDeleted,
+        // Check the expiration date on the parent University
+        university: {
+          ...notDeleted,
+          expires: { gte: now, lte: sixMonths },
+        },
+      },
+    }),
+    prisma.agreement.count({
+      where: {
+        ...notDeleted,
+        university: {
+          ...notDeleted,
+          expires: { gt: sixMonths, lte: eightMonths },
+        },
+      },
+    }),
+    prisma.agreement.count({
+      where: {
+        ...notDeleted,
+        university: {
+          ...notDeleted,
+          expires: { gt: eightMonths, lte: year },
+        },
+      },
+    }),
+  ]);
+
+  return [
+    { range: '6_month', count: one },
+    { range: '8_months', count: three },
+    { range: '12_months', count: six },
+  ];
 }
+
+// ── Agreements by Type ────────────────────────────────────────────────────────
 
 export interface AgreementTypeData {
   type: string;
   count: number;
 }
 
-// MOCK DATA based on your database description
-// I estimated counts based on the "Null" values you provided
-const AGREEMENT_TYPE_DATA: AgreementTypeData[] = [
-  { type: 'exchange', count: 150 }, // "Intercambio" (Most common)
-  { type: 'study_abroad', count: 80 }, // "Study Abroad"
-  { type: 'double_degree', count: 45 }, // "Double Diploma"
-  { type: 'research', count: 30 }, // "Investigación"
-  { type: 'internship', count: 25 }, // "Prácticas"
-  { type: 'cotutela', count: 12 }, // "Cotutela"
-  { type: 'other', count: 18 }, // "Otro" (MOU, Summer, etc)
-];
-
 export async function getAgreementTypeStats(): Promise<AgreementTypeData[]> {
-  await new Promise((resolve) => setTimeout(resolve, 1200));
-  return AGREEMENT_TYPE_DATA;
+  const types = await prisma.refAgreementType.findMany({
+    select: {
+      name: true,
+      _count: { select: { agreements: { where: notDeleted } } },
+    },
+  });
+
+  return types
+    .map((t) => ({
+      type: t.name,
+      count: t._count.agreements,
+    }))
+    .filter((t) => t.count > 0)
+    .sort((a, b) => b.count - a.count);
 }
+
+// ── Top Faculties (Beneficiaries) ─────────────────────────────────────────────
 
 export interface FacultyData {
   faculty: string;
   count: number;
 }
 
-// MOCK DATA: Simulating the top 5 faculties after fuzzy matching cleanup
-const FACULTY_DATA: FacultyData[] = [
-  { faculty: 'economy_business', count: 120 }, // 'Economía y Negocios'
-  { faculty: 'engineering', count: 95 }, // Assumed high volume
-  { faculty: 'health', count: 80 }, // 'Facultad de Ciencias de la Salud'
-  { faculty: 'architecture_design', count: 65 }, // 'Facultad de Arquitectura, Diseño...'
-  { faculty: 'law', count: 50 }, // 'Derecho y Estudios Globales'
-];
-
 export async function getFacultyStats(): Promise<FacultyData[]> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 1400));
-  return FACULTY_DATA;
+  const beneficiaries = await prisma.refBeneficiary.findMany({
+    select: {
+      name: true,
+      _count: { select: { agreements: true } },
+    },
+  });
+
+  return beneficiaries
+    .map((b) => ({
+      faculty: b.name,
+      count: b._count.agreements,
+    }))
+    .filter((b) => b.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5); // Top 5
 }
+
+// ── Map Data (Universities with Coordinates) ──────────────────────────────────
+
 export interface University {
   id: string;
   name: string;
   country: string;
   city: string;
   coordinates: { lat: number; lng: number };
-  agreements: number; // For marker color
+  agreements: number;
   activeSlots: number;
 }
 
-const UNIVERSITIES_DATA: University[] = [
-  {
-    id: 'UNI-001',
-    name: 'Yale University',
-    country: 'EUA',
-    city: 'New Haven',
-    coordinates: { lat: 41.3163, lng: -72.9223 },
-    agreements: 3,
-    activeSlots: 12,
-  },
-  {
-    id: 'UNI-002',
-    name: 'Universidad Complutense de Madrid',
-    country: 'España',
-    city: 'Madrid',
-    coordinates: { lat: 40.4168, lng: -3.7038 },
-    agreements: 5,
-    activeSlots: 20,
-  },
-  {
-    id: 'UNI-003',
-    name: 'Kyoto University',
-    country: 'Japón',
-    city: 'Kyoto',
-    coordinates: { lat: 35.0116, lng: 135.7681 },
-    agreements: 2,
-    activeSlots: 8,
-  },
-  {
-    id: 'UNI-004',
-    name: 'Sorbonne Université',
-    country: 'Francia',
-    city: 'París',
-    coordinates: { lat: 48.8566, lng: 2.3522 },
-    agreements: 4,
-    activeSlots: 15,
-  },
-  {
-    id: 'UNI-005',
-    name: 'University of Toronto',
-    country: 'Canadá',
-    city: 'Toronto',
-    coordinates: { lat: 43.6532, lng: -79.3832 },
-    agreements: 6,
-    activeSlots: 25,
-  },
-  {
-    id: 'UNI-006',
-    name: 'Universidad de Buenos Aires',
-    country: 'Argentina',
-    city: 'Buenos Aires',
-    coordinates: { lat: -34.6037, lng: -58.3816 },
-    agreements: 3,
-    activeSlots: 10,
-  },
-  {
-    id: 'UNI-007',
-    name: 'National University of Singapore',
-    country: 'Singapur',
-    city: 'Singapore',
-    coordinates: { lat: 1.2966, lng: 103.7764 },
-    agreements: 4,
-    activeSlots: 18,
-  },
-  {
-    id: 'UNI-008',
-    name: 'University of Sydney',
-    country: 'Australia',
-    city: 'Sydney',
-    coordinates: { lat: -33.8886, lng: 151.1873 },
-    agreements: 2,
-    activeSlots: 8,
-  },
-  {
-    id: 'UNI-009',
-    name: 'Technische Universität München',
-    country: 'Alemania',
-    city: 'Munich',
-    coordinates: { lat: 48.1351, lng: 11.582 },
-    agreements: 5,
-    activeSlots: 22,
-  },
-  {
-    id: 'UNI-010',
-    name: 'Politecnico di Milano',
-    country: 'Italia',
-    city: 'Milán',
-    coordinates: { lat: 45.4642, lng: 9.19 },
-    agreements: 3,
-    activeSlots: 14,
-  },
-];
-
 export async function getUniversities(): Promise<University[]> {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  return UNIVERSITIES_DATA;
+  const unis = await prisma.university.findMany({
+    where: {
+      ...notDeleted,
+      lat: { not: null },
+      lng: { not: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      lat: true,
+      lng: true,
+      country: { select: { name: true } },
+      _count: { select: { agreements: { where: notDeleted } } },
+    },
+  });
+
+  return unis.map((u) => ({
+    id: u.id,
+    name: u.name,
+    country: u.country?.name || 'Unknown',
+    city: u.city || 'Unknown',
+    coordinates: { lat: u.lat!, lng: u.lng! },
+    agreements: u._count.agreements,
+    activeSlots: 0, // Fallback; you can query RefAttr to extract actual slots if needed later
+  }));
 }
