@@ -78,12 +78,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
-  sessions      Session[] 
+  sessions      Session[]
 
-  role       Role @default(WAITLISTED)
+  role Role @default(WAITLISTED)
+
   @@map("user")
 }
-
 
 // ============================================================
 // REFERENCE TABLES
@@ -91,65 +91,50 @@ model User {
 // never alter the schema to add a new value.
 // ============================================================
 
-/// World region.
-/// Seed values from Excel (8 unique): Europa, América Latina,
-/// América del Norte, Asia, Medio Oriente, Oceanía, África, América del Sur
 model RefRegion {
   id           Int          @id @default(autoincrement())
-  nombre       String       @unique @db.VarChar(150)
+  name         String       @unique @db.VarChar(150)
   universities University[]
 
   @@map("ref_region")
 }
 
-/// Country. ~60 unique values in the dataset.
-/// NOTE: Excel has trailing spaces ("España " vs "España") — normalise with
-/// .trim() before upsert during seed.
-model RefPais {
+model RefCountry {
   id           Int          @id @default(autoincrement())
-  nombre       String       @unique @db.VarChar(150)
+  name         String       @unique @db.VarChar(150)
   universities University[]
 
   @@map("ref_pais")
 }
 
-/// Institution sector (Universidad, Empresa, Asociación…).
-/// 19 unique values in the dataset.
-model RefGiro {
+/// Giro — institutional category (e.g. Pública, Privada, Gubernamental).
+model RefInstitutionType {
   id           Int          @id @default(autoincrement())
-  nombre       String       @unique @db.VarChar(150)
+  name         String       @unique @db.VarChar(150)
   universities University[]
 
   @@map("ref_giro")
 }
 
-/// Anáhuac campus responsible for the relationship.
-/// Only 3 values in the full dataset: México, Norte, Sur.
 model RefCampus {
   id           Int          @id @default(autoincrement())
-  nombre       String       @unique @db.VarChar(150)
+  name         String       @unique @db.VarChar(150)
   universities University[]
 
   @@map("ref_campus")
 }
 
-/// Agreement types. One row per type — adding a new type is an INSERT,
-/// not a migration.
-/// Seed: Intercambio, Study Abroad, Investigación, Prácticas,
-///       Doble Diploma, Cotutela, Otro
 model RefAgreementType {
   id         Int         @id @default(autoincrement())
-  nombre     String      @unique @db.VarChar(150)
+  name       String      @unique @db.VarChar(150)
   agreements Agreement[]
 
   @@map("ref_agreement_type")
 }
 
-/// Accreditations that can be tagged to an agreement.
-/// Seed: ABET, ACJMC, AACSB, AMBA, EFMD
 model RefAttr {
   id             Int             @id @default(autoincrement())
-  nombre         String          @unique @db.VarChar(150)
+  name           String          @unique @db.VarChar(150)
   agreementAttrs AgreementAttr[]
 
   @@map("ref_attr")
@@ -162,11 +147,31 @@ model RefAttr {
 /// color = hex string used by UI badges e.g. "#22c55e"
 model RefStatus {
   id         Int         @id @default(autoincrement())
-  nombre     String      @unique @db.VarChar(150)
+  value      String      @unique @db.VarChar(150)
   color      String?     @db.VarChar(7)
   agreements Agreement[]
 
   @@map("ref_status")
+}
+
+model RefUtilization {
+  id           Int          @id @default(autoincrement())
+  value        String       @unique @db.VarChar(150)
+  color        String?      @db.VarChar(7)
+  universities University[]
+
+  @@map("ref_utilization")
+}
+
+model RefBeneficiary {
+  id         Int                    @id @default(autoincrement())
+  /// Short alphanumeric code (e.g. CC, EG, ZZ, CD).
+  /// Preserved from the original referencias.xlsx CVE column.
+  cve        String                 @unique @db.VarChar(10)
+  name       String                 @unique @db.VarChar(150)
+  agreements AgreementBeneficiary[]
+
+  @@map("ref_beneficiary")
 }
 
 // ============================================================
@@ -174,163 +179,227 @@ model RefStatus {
 // ============================================================
 
 model University {
-  id         String  @id @default(uuid())
-  nombre     String  @db.VarChar(255)
-  /// URL-safe slug for [slug] routes. Generate with slugify(nombre),
+  id   String @id @default(uuid())
+  /// URL-safe slug for [slug] routes. Generate with slugify(name),
   /// append a counter suffix if a collision occurs.
-  slug       String  @unique @db.VarChar(300)
+  slug String @unique @db.VarChar(300)
+  name String @db.VarChar(255)
+
+  /// Start of the institutional relationship (Excel: Inicio).
+  start   DateTime
+  /// End of the MOU validity period (Excel: Vigencia).
+  /// Nullable — some agreements are marked "indefinido".
+  expires DateTime?
+
+  // ── Metadata ──────────────────────────────────────────────
+  isCatholic Boolean @default(false)
+  // qs_ranking Int? — dropped, no destination in current scope
+
+  pagina_web String? @db.VarChar(500)
 
   // ── Location ──────────────────────────────────────────────
   /// Free-text city (~258 unique values — too many for a ref table).
   /// On insert: trim() + pg_trgm similarity check to warn about
   /// near-duplicates ("Madrid" vs "Madrid ") without blocking.
-  ciudad     String? @db.VarChar(150)
-  address    String? @db.VarChar(500)
+  city    String? @db.VarChar(150)
+  address String? @db.VarChar(500)
   /// WGS-84 decimal degrees for map pins.
-  lat        Float?
-  lng        Float?
-
-  // ── Metadata ──────────────────────────────────────────────
-  catholica  Boolean @default(false)
-  qs_ranking Int?
-  pagina_web String? @db.VarChar(500)
-  comments   String? @db.Text
+  lat     Float?
+  lng     Float?
 
   // ── FK references ─────────────────────────────────────────
-  regionId   Int
-  region     RefRegion  @relation(fields: [regionId], references: [id])
+  regionId Int
+  region   RefRegion @relation(fields: [regionId], references: [id])
 
-  paisId     Int
-  pais       RefPais    @relation(fields: [paisId], references: [id])
+  countryId Int
+  country   RefCountry @relation(fields: [countryId], references: [id])
 
-  giroId     Int?
-  giro       RefGiro?   @relation(fields: [giroId], references: [id])
+  /// Nullable — not all Excel rows have a Giro value.
+  institutionTypeId Int
+  institutionType   RefInstitutionType? @relation(fields: [institutionTypeId], references: [id])
 
-  campusId   Int?
-  campus     RefCampus? @relation(fields: [campusId], references: [id])
+  /// Nullable — not all Excel rows have a Campus Titular value.
+  campusId Int
+  campus   RefCampus? @relation(fields: [campusId], references: [id])
+
+  /// Nullable — maps from Se_USA. Null source value → find RefUtilization
+  /// where value = 'Nula' and store that id rather than leaving null,
+  /// so the UI always has a value to display.
+  utilizationId Int
+  utilization   RefUtilization? @relation(fields: [utilizationId], references: [id])
 
   // ── Relations ─────────────────────────────────────────────
-  contacts   Contact[]
-  agreements Agreement[]
+  contacts     Contact[]
+  agreements   Agreement[]
+  observations Observation[]
 
   // ── Timestamps ────────────────────────────────────────────
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   /// Soft delete. Filter with: where: { deletedAt: null }
   /// Never hard-delete — use: update: { deletedAt: new Date() }
-  deletedAt  DateTime?
+  deletedAt DateTime?
 
   @@map("university")
 }
 
 // ============================================================
 // CONTACT
-// One university → many contacts.
-// One contact → many ContactInfo rows (emails + phones).
 //
-// The Excel stores "Contacto Intercambios Entrantes" and
-// "Contacto Intercambios Salientes" as raw strings that contain
-// phone numbers. On seed: create one Contact per column with the
-// appropriate ContactType, then create a ContactInfo row with
-// type=PHONE for the phone string.
+// One university → many contacts.
+// The Excel stores Entrantes and Salientes as raw strings that
+// may contain a name, an email, a phone, or a mix.
+//
+// On seed: create one Contact row per non-empty column,
+// setting concernType accordingly. If the entrante and saliente
+// values are identical, create a single row with concernType=GENERAL
+// instead of two duplicates.
+//
+// valueType lets the UI render the value correctly (mailto: vs tel:).
+// If a cell contains both a name and an email, store them as two
+// separate Contact rows sharing the same universityId and concernType.
 // ============================================================
 
-enum ContactType {
-  INCOMING  // Contacto Intercambios Entrantes
-  OUTGOING  // Contacto Intercambios Salientes
-  GENERAL
+enum ContactConcernType {
+  INCOMING // Contacto Intercambios Entrantes
+  OUTGOING // Contacto Intercambios Salientes
+  GENERAL // Same person covers both directions
 }
 
-enum ContactInfoType {
+enum ContactValueType {
   EMAIL
   PHONE
 }
 
 model Contact {
-  id           String        @id @default(uuid())
+  id           String             @id @default(uuid())
   universityId String
-  university   University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  type         ContactType
-  nombre       String?       @db.VarChar(255)
-  infos        ContactInfo[]
+  university   University         @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  concernType  ContactConcernType
+  valueType    ContactValueType
+  name         String?            @db.VarChar(255)
+  value        String             @db.VarChar(255)
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@map("contact")
-}
-
-model ContactInfo {
-  id        String          @id @default(uuid())
-  contactId String
-  contact   Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  type      ContactInfoType
-  value     String          @db.VarChar(255)
-
-  @@map("contact_info")
 }
 
 // ============================================================
 // AGREEMENT
 //
 // DATA SHAPE — one Excel row expands to multiple Agreement rows:
-//   Excel row → 1 University + 1 Agreement per marked type column
-//   (INTERCAMBIO, STUDY ABROAD, INVESTIGACIÓN, PRÁCTICAS,
-//    DOBLE DIPLOMA, COTUTELA, OTRO)
+//   Excel row → 1 University + N Agreements (one per marked type column)
+//   Marked columns: INTERCAMBIO, STUDY ABROAD, INVESTIGACIÓN,
+//   PRÁCTICAS, DOBLE DIPLOMA, COTUTELA, OTRO
 //
-// PLAZAS encoding from the Excel:
-//   plazas_lic: integer (PLAZAS LIC column) or null if "NA"
-//   plazas_pos: integer if a number was given,
-//               0 if "SI" (spots exist but count unknown),
-//               null if "NA" / "NO"
+// SPOTS encoding (collapsed from two Excel columns):
+//   Licenciatura spots  → spots on the Intercambio (typeId=2) agreement
+//   Posgrado spots      → spots on the Posgrado-level Intercambio agreement
+//   Numeric value       → stored as-is
+//   Truthy non-numeric  → stored as 0 (spots exist, count unknown)
+//   Falsy / NA / NO     → null (not applicable)
 //
-// VIGENCIA encoding:
-//   vigencia: Int year (2025, 2027…) or null for "indefinido"
+// OTRO type:
+//   Dynamic RefAgreementType rows inserted at runtime (id ≥ 7).
+//   Store the original OTRO cell text in comments for traceability.
 //
-// OTRO type comments:
-//   When type = Otro, store the original text value from the
-//   Excel OTRO column (e.g. "MOU", "COIL", "Intercambio docente")
-//   in the comments field.
+// STATUS:
+//   All ETL-seeded agreements get statusId resolved at seed start
+//   via: prisma.refStatus.findFirstOrThrow({ where: { value: 'Activo' } })
+//   Cache the result — never hardcode the integer id.
 // ============================================================
 
 model Agreement {
-  id           String           @id @default(uuid())
+  id           String     @id @default(uuid())
   universityId String
-  university   University       @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
-  typeId       Int
-  type         RefAgreementType @relation(fields: [typeId], references: [id])
+  typeId Int
+  type   RefAgreementType @relation(fields: [typeId], references: [id])
 
-  statusId     Int
-  status       RefStatus        @relation(fields: [statusId], references: [id])
-
-  // ── Validity ──────────────────────────────────────────────
-  inicio       Int?
-  /// Null = indefinido
-  vigencia     Int?
+  statusId Int
+  status   RefStatus @relation(fields: [statusId], references: [id])
 
   // ── Spots ─────────────────────────────────────────────────
-  plazas_lic   Int?
-  plazas_pos   Int?
+  /// Collapsed from plazas_lic and plazas_pos.
+  /// null = not applicable. 0 = exists but count unknown.
+  spots Int?
 
   // ── Scope & flags ─────────────────────────────────────────
-  /// ÁREA, ESCUELA O FACULTAD. Free-text. "Abierto" = all faculties.
-  beneficiario  String?  @db.VarChar(500)
-  se_usa        Boolean  @default(true)
-  link_convenio String?  @db.VarChar(500)
-  comments      String?  @db.Text
+  link_convenio String? @db.VarChar(500)
 
-  // ── Accreditations ────────────────────────────────────────
+  // ── Junctions ─────────────────────────────────────────────
+  beneficiaries AgreementBeneficiary[]
   attrs         AgreementAttr[]
 
+  // ── Observations ──────────────────────────────────────────
+  observations Observation[]
+
   // ── Timestamps ────────────────────────────────────────────
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   /// Soft delete. Filter with: where: { deletedAt: null }
-  deletedAt     DateTime?
+  deletedAt DateTime?
 
   @@map("agreement")
+}
+
+// ============================================================
+// OBSERVATION
+//
+// Structured notes attached to either a University or an Agreement.
+// Both FKs are nullable — a given observation belongs to one or
+// the other, never both. Enforce at the application layer:
+//   if (universityId && agreementId) throw new Error(...)
+//
+// ObservationOrigin:
+//   GENERATED   = created by the ETL (e.g. cleaned Excel cell comments,
+//            parse warnings, near-duplicate city alerts)
+//   MANUAL = created by a user via the admin UI 
+// 
+// ObservationLevel: Reflects the level of action required
+//
+// source: fine-grained label for AUTO observations, e.g.:
+//   "excel_comment", "etl_validation", "etl_fuzzy_match"
+//   Leave null for MANUAL observations.
+// ============================================================
+
+enum ObservationOrigin {
+  GENERATED
+  MANUAL
+}
+
+enum ObservationLevel {
+  ERROR
+  WARNING
+  INFO
+}
+
+model Observation {
+  id   String @id @default(uuid())
+  text String @db.Text
+
+  origin ObservationOrigin
+  level  ObservationLevel
+  /// Fine-grained origin for AUTO observations.
+  /// e.g. "excel_comment" | "etl_validation" | "etl_fuzzy_match"
+  /// Always null for MANUAL observations.
+  source String?           @db.VarChar(100)
+
+  // ── Target (one or the other, never both) ─────────────────
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  agreementId String?
+  agreement   Agreement? @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  // ── Timestamps ────────────────────────────────────────────
+  createdAt DateTime @default(now())
+
+  @@map("observation")
 }
 
 // ============================================================
@@ -345,4 +414,14 @@ model AgreementAttr {
 
   @@id([agreementId, attrId])
   @@map("agreement_attr")
+}
+
+model AgreementBeneficiary {
+  agreementId   String
+  beneficiaryId Int
+  agreement     Agreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  beneficiary   RefBeneficiary @relation(fields: [beneficiaryId], references: [id])
+
+  @@id([agreementId, beneficiaryId])
+  @@map("agreement_beneficiary")
 }

@@ -47,11 +47,33 @@ next-env.d.ts
 # Note Files
 scratchpad.md
 
-# python 
-etl/.venv/
-etl/__pycache__/
+# =========================
+# Python & Virtual Envs
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
 
-# data 
-prisma/data/
-etl/data/
-etl/output
+# =========================
+# Data & Outputs
+# (Ignores contents, keeps folders via .gitkeep)
+# =========================
+prisma/data/*
+!prisma/data/.gitkeep
+
+etl/data/*
+!etl/data/.gitkeep
+
+etl/output/*
+!etl/output/.gitkeep
+
+etl/seed_data/*
+!etl/seed_data/.gitkeep
+
+# Ignore Polars/Excel cache files if they leak out
+.excel_hash
+*.parquet
