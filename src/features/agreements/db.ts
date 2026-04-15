@@ -16,13 +16,14 @@ const agreementInclude = {
   university: {
     select: {
       id: true,
-      nombre: true,
+      name: true, // Changed from 'nombre'
       slug: true,
-      pais: true,
-      ciudad: true,
+      country: true, // Changed from 'pais'
+      city: true, // Changed from 'ciudad'
     },
   },
   attrs: { include: { attr: true } },
+  beneficiaries: { include: { beneficiary: true } }, // Added from schema
 } satisfies Prisma.AgreementInclude;
 
 // ── Inferred return types ─────────────────────────────────────────────────────
@@ -56,95 +57,4 @@ export async function dbGetAgreementById(id: string) {
     where: { id, ...notDeleted },
     include: agreementInclude,
   });
-}
-
-// ── Write functions ───────────────────────────────────────────────────────────
-
-export type CreateAgreementData = {
-  universityId: string;
-  typeId: number;
-  statusId: number;
-  inicio?: number;
-  vigencia?: number;
-  plazas_lic?: number;
-  plazas_pos?: number;
-  beneficiario?: string;
-  se_usa: boolean;
-  link_convenio?: string;
-  comments?: string;
-  // IDs of accreditation attrs to attach (ABET, AACSB, etc.)
-  attrIds?: number[];
-};
-
-export async function dbCreateAgreement(data: CreateAgreementData) {
-  const { attrIds, ...agreementData } = data;
-
-  return prisma.$transaction(async (tx) => {
-    const agreement = await tx.agreement.create({
-      data: agreementData,
-    });
-
-    if (attrIds && attrIds.length > 0) {
-      await tx.agreementAttr.createMany({
-        data: attrIds.map((attrId) => ({ agreementId: agreement.id, attrId })),
-        skipDuplicates: true,
-      });
-    }
-
-    return tx.agreement.findUniqueOrThrow({
-      where: { id: agreement.id },
-      include: agreementInclude,
-    });
-  });
-}
-
-export type UpdateAgreementData = Partial<
-  Omit<CreateAgreementData, 'universityId'>
-  // universityId never changes — an agreement belongs to one university forever.
-  // To "move" an agreement, soft-delete it and create a new one.
->;
-
-export async function dbUpdateAgreement(id: string, data: UpdateAgreementData) {
-  const { attrIds, ...agreementData } = data;
-
-  return prisma.$transaction(async (tx) => {
-    // Scope update to id + notDeleted to prevent IDOR
-    const result = await tx.agreement.updateMany({
-      where: { id, ...notDeleted },
-      data: agreementData,
-    });
-
-    if (result.count === 0) throw new AgreementNotFoundError();
-
-    // Replace attrs if provided — delete existing, insert new set.
-    // Doing a full replace is simpler and safer than diffing.
-    if (attrIds !== undefined) {
-      await tx.agreementAttr.deleteMany({ where: { agreementId: id } });
-
-      if (attrIds.length > 0) {
-        await tx.agreementAttr.createMany({
-          data: attrIds.map((attrId) => ({ agreementId: id, attrId })),
-          skipDuplicates: true,
-        });
-      }
-    }
-  });
-}
-
-export async function dbUpdateAgreementStatus(id: string, statusId: number) {
-  const result = await prisma.agreement.updateMany({
-    where: { id, ...notDeleted },
-    data: { statusId },
-  });
-
-  if (result.count === 0) throw new AgreementNotFoundError();
-}
-
-export async function dbSoftDeleteAgreement(id: string) {
-  const result = await prisma.agreement.updateMany({
-    where: { id, ...notDeleted },
-    data: { deletedAt: new Date() },
-  });
-
-  if (result.count === 0) throw new AgreementNotFoundError();
 }
