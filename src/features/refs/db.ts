@@ -7,31 +7,39 @@ import { prisma } from '@/lib/prisma';
 // but the combined getAllRefs() is the common case for forms.
 
 export async function dbGetRegions() {
-  return prisma.refRegion.findMany({ orderBy: { nombre: 'asc' } });
+  return prisma.refRegion.findMany({ orderBy: { name: 'asc' } });
 }
 
-export async function dbGetPaises() {
-  return prisma.refPais.findMany({ orderBy: { nombre: 'asc' } });
+export async function dbGetCountries() {
+  return prisma.refCountry.findMany({ orderBy: { name: 'asc' } });
 }
 
-export async function dbGetGiros() {
-  return prisma.refGiro.findMany({ orderBy: { nombre: 'asc' } });
+export async function dbGetInstitutionTypes() {
+  return prisma.refInstitutionType.findMany({ orderBy: { name: 'asc' } });
 }
 
 export async function dbGetCampuses() {
-  return prisma.refCampus.findMany({ orderBy: { nombre: 'asc' } });
+  return prisma.refCampus.findMany({ orderBy: { name: 'asc' } });
 }
 
 export async function dbGetAgreementTypes() {
-  return prisma.refAgreementType.findMany({ orderBy: { nombre: 'asc' } });
+  return prisma.refAgreementType.findMany({ orderBy: { name: 'asc' } });
 }
 
 export async function dbGetAttrs() {
-  return prisma.refAttr.findMany({ orderBy: { nombre: 'asc' } });
+  return prisma.refAttr.findMany({ orderBy: { name: 'asc' } });
 }
 
 export async function dbGetStatuses() {
-  return prisma.refStatus.findMany({ orderBy: { nombre: 'asc' } });
+  return prisma.refStatus.findMany({ orderBy: { value: 'asc' } });
+}
+
+export async function dbGetUtilizations() {
+  return prisma.refUtilization.findMany({ orderBy: { value: 'asc' } });
+}
+
+export async function dbGetBeneficiaries() {
+  return prisma.refBeneficiary.findMany({ orderBy: { name: 'asc' } });
 }
 
 // ── Combined fetcher ──────────────────────────────────────────────────────────
@@ -43,18 +51,39 @@ export async function dbGetStatuses() {
 //   return <UniversityForm refs={refs} />;
 
 export async function dbGetAllRefs() {
-  const [regions, paises, giros, campuses, agreementTypes, attrs, statuses] =
-    await Promise.all([
-      dbGetRegions(),
-      dbGetPaises(),
-      dbGetGiros(),
-      dbGetCampuses(),
-      dbGetAgreementTypes(),
-      dbGetAttrs(),
-      dbGetStatuses(),
-    ]);
+  const [
+    regions,
+    countries,
+    institutionTypes,
+    campuses,
+    agreementTypes,
+    attrs,
+    statuses,
+    utilizations,
+    beneficiaries,
+  ] = await Promise.all([
+    dbGetRegions(),
+    dbGetCountries(),
+    dbGetInstitutionTypes(),
+    dbGetCampuses(),
+    dbGetAgreementTypes(),
+    dbGetAttrs(),
+    dbGetStatuses(),
+    dbGetUtilizations(),
+    dbGetBeneficiaries(),
+  ]);
 
-  return { regions, paises, giros, campuses, agreementTypes, attrs, statuses };
+  return {
+    regions,
+    countries,
+    institutionTypes,
+    campuses,
+    agreementTypes,
+    attrs,
+    statuses,
+    utilizations,
+    beneficiaries,
+  };
 }
 
 // ── Typed return type ─────────────────────────────────────────────────────────
@@ -73,14 +102,15 @@ export type AllRefs = Awaited<ReturnType<typeof dbGetAllRefs>>;
 // All checks run in parallel — one round-trip regardless of how many refs.
 //
 // Usage in an action:
-//   const valid = await dbValidateRefs({ regionId: 3, paisId: 7 });
+//   const valid = await dbValidateRefs({ regionId: 3, countryId: 7 });
 //   if (!valid) return { success: false, message: 'Valor de referencia inválido.' };
 
 type RefValidationInput = {
   regionId?: number;
-  paisId?: number;
-  giroId?: number;
+  countryId?: number;
+  institutionTypeId?: number;
   campusId?: number;
+  utilizationId?: number;
   typeId?: number;
   statusId?: number;
 };
@@ -98,18 +128,18 @@ export async function dbValidateRefs(
       })
     );
   }
-  if (refs.paisId !== undefined) {
+  if (refs.countryId !== undefined) {
     checks.push(
-      prisma.refPais.findUnique({
-        where: { id: refs.paisId },
+      prisma.refCountry.findUnique({
+        where: { id: refs.countryId },
         select: { id: true },
       })
     );
   }
-  if (refs.giroId !== undefined) {
+  if (refs.institutionTypeId !== undefined) {
     checks.push(
-      prisma.refGiro.findUnique({
-        where: { id: refs.giroId },
+      prisma.refInstitutionType.findUnique({
+        where: { id: refs.institutionTypeId },
         select: { id: true },
       })
     );
@@ -118,6 +148,14 @@ export async function dbValidateRefs(
     checks.push(
       prisma.refCampus.findUnique({
         where: { id: refs.campusId },
+        select: { id: true },
+      })
+    );
+  }
+  if (refs.utilizationId !== undefined) {
+    checks.push(
+      prisma.refUtilization.findUnique({
+        where: { id: refs.utilizationId },
         select: { id: true },
       })
     );
@@ -140,5 +178,6 @@ export async function dbValidateRefs(
   }
 
   const results = await Promise.all(checks);
+  // If any result is null, it means that specific ID was not found in the DB.
   return results.every((r) => r !== null);
 }

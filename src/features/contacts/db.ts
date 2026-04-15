@@ -2,7 +2,10 @@ import 'server-only';
 
 import { prisma } from '@/lib/prisma';
 import { notDeleted } from '@/lib/db-filters';
-import type { ContactType, ContactInfoType } from '@/generated/prisma/client';
+import type {
+  ContactConcernType,
+  ContactValueType,
+} from '@/generated/prisma/client';
 
 // ── Custom error classes ──────────────────────────────────────────────────────
 
@@ -13,71 +16,48 @@ export class ContactNotFoundError extends Error {}
 export async function dbGetContactsByUniversity(universityId: string) {
   return prisma.contact.findMany({
     where: { universityId, ...notDeleted },
-    include: { infos: true },
-    orderBy: { type: 'asc' },
+    orderBy: [{ concernType: 'asc' }, { valueType: 'asc' }],
   });
 }
 
 // ── Write functions ───────────────────────────────────────────────────────────
 
-export type ContactInfoInput = {
-  type: ContactInfoType;
+export type CreateContactData = {
+  universityId: string;
+  concernType: ContactConcernType;
+  valueType: ContactValueType;
+  name?: string | null;
   value: string;
 };
 
-export type UpsertContactData = {
-  universityId: string;
-  type: ContactType;
-  nombre?: string;
-  infos: ContactInfoInput[];
-};
+// Create a new contact entry. (e.g., adding a specific EMAIL for an INCOMING concern)
+export async function dbCreateContact(data: CreateContactData) {
+  return prisma.contact.create({
+    data,
+  });
+}
 
-// Upsert pattern: find the existing contact for this university+type, replace
-// its info rows. One contact per type per university is the intended invariant.
-// If a second contact of the same type is needed, create a new one via dbCreateContact.
-export async function dbUpsertContact(data: UpsertContactData) {
-  return prisma.$transaction(async (tx) => {
-    // Find or create the contact record
-    let contact = await tx.contact.findFirst({
-      where: {
-        universityId: data.universityId,
-        type: data.type,
-        ...notDeleted,
-      },
-    });
+export type UpdateContactData = Partial<
+  Omit<CreateContactData, 'universityId'>
+>;
 
-    if (!contact) {
-      contact = await tx.contact.create({
-        data: {
-          universityId: data.universityId,
-          type: data.type,
-          nombre: data.nombre,
-        },
-      });
-    } else if (data.nombre !== undefined) {
-      await tx.contact.update({
-        where: { id: contact.id },
-        data: { nombre: data.nombre },
-      });
-    }
+export async function dbUpdateContact(
+  id: string,
+  universityId: string,
+  data: UpdateContactData
+) {
+  // We use updateMany scoped to universityId to prevent IDOR vulnerabilities.
+  // Even though it targets a unique ID, updateMany allows us to filter by both.
+  const result = await prisma.contact.updateMany({
+    where: { id, universityId, ...notDeleted },
+    data,
+  });
 
-    // Replace all info rows — simpler than diffing individual emails/phones
-    await tx.contactInfo.deleteMany({ where: { contactId: contact.id } });
+  if (result.count === 0) throw new ContactNotFoundError();
 
-    if (data.infos.length > 0) {
-      await tx.contactInfo.createMany({
-        data: data.infos.map((info) => ({
-          contactId: contact.id,
-          type: info.type,
-          value: info.value,
-        })),
-      });
-    }
-
-    return tx.contact.findUniqueOrThrow({
-      where: { id: contact.id },
-      include: { infos: true },
-    });
+  // Return the updated row
+  return prisma.contact.findFirstOrThrow({
+    where: { id },
   });
 }
 

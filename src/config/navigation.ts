@@ -3,6 +3,7 @@ import {
   FileSpreadsheet,
   Building2,
   Users,
+  Settings,
 } from 'lucide-react';
 import type { Permission } from '@/lib/permissions'; // Safe type-only import!
 import type { LucideIcon } from 'lucide-react';
@@ -42,6 +43,13 @@ export const NAV_LINKS: NavLink[] = [
     icon: Users,
     title: 'Usuarios',
     subtitle: 'Administración de usuarios y roles',
+    permission: 'member:view', // 👈 Only Admins and Editors will see this!
+  },
+  {
+    href: '/settings',
+    icon: Settings,
+    title: 'Configuración',
+    subtitle: 'Administración de referencias',
     permission: 'member:view', // 👈 Only Admins and Editors will see this!
   },
 ];
