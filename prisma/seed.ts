@@ -420,6 +420,30 @@ async function main() {
   }
   console.log(`  ✓ ${seed.observations.length} inserted\n`);
 
+  // ── Fix sequences ─────────────────────────────────────────────────────────
+  // The ETL inserted rows with explicit IDs, which leaves Postgres sequences
+  // pointing at 1 even though higher IDs exist. Reset each sequence to
+  // MAX(id) + 1 so subsequent INSERTs use the correct next value.
+
+  console.log('→ fixing sequences');
+  const refTables: [string, string][] = [
+    ['ref_region', 'id'],
+    ['ref_pais', 'id'],
+    ['ref_giro', 'id'],
+    ['ref_campus', 'id'],
+    ['ref_agreement_type', 'id'],
+    ['ref_attr', 'id'],
+    ['ref_status', 'id'],
+    ['ref_utilization', 'id'],
+    ['ref_beneficiary', 'id'],
+  ];
+  for (const [table, col] of refTables) {
+    await prisma.$executeRawUnsafe(
+      `SELECT setval(pg_get_serial_sequence('${table}', '${col}'), (SELECT MAX(${col}) FROM "${table}") + 1, false)`
+    );
+  }
+  console.log('  ✓ sequences reset\n');
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   const [uniCount, agrCount, conCount, obsCount] = await Promise.all([
