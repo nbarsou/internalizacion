@@ -69,6 +69,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buildColumns, COLUMN_LABELS } from './columns';
 import type { UniversityListItem } from '@/features/universities/db';
+import Link from 'next/link';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -319,9 +320,12 @@ export function UniversitiesClientTable({
           <Button
             size="sm"
             className="h-8 gap-1.5 bg-orange-600 text-white hover:bg-orange-700"
+            asChild
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Nueva institución</span>
+            <Link href="/universities/create">
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Nueva institución</span>
+            </Link>
           </Button>
         </div>
       </div>
