@@ -1,122 +1,163 @@
+import { Accordion } from '@/components/ui/accordion';
 import { dbGetAllRefs } from '@/features/refs/db';
-import { RefTable } from '@/features/refs/components/ref-table';
+import { RefAccordionSection } from '@/features/refs/components/ref-table';
+import type {
+  NameRow,
+  ValueRow,
+  BenefRow,
+} from '@/features/refs/components/ref-table';
 
 export default async function RefsPage() {
   const refs = await dbGetAllRefs();
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Tablas de Referencia
+          Tablas de referencia
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Vocabulario controlado utilizado en todo el sistema. Solo lectura.
+          Valores controlados usados en convenios e instituciones. Expande una
+          sección para ver y gestionar sus valores.
         </p>
       </div>
 
-      {/* Two-column grid for compact tables, single column for larger ones */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <RefTable
+      <Accordion type="multiple" className="flex flex-col gap-2">
+        {/* ── University ref tables ── */}
+        <RefAccordionSection<NameRow>
+          value="regions"
           title="Regiones"
-          description="Clasificación geográfica de universidades."
-          rows={refs.regions}
-          columns={[{ key: 'name', label: 'Nombre' }]}
+          table="refRegion"
+          rows={refs.regions as NameRow[]}
+          countKey="universities"
+          usedByLabel="universidades"
+          createFields={{ type: 'name' }}
+          renderLabel={(r) => r.name}
         />
 
-        <RefTable
-          title="Campus Anáhuac"
-          description="Campus titular del convenio."
-          rows={refs.campuses}
-          columns={[{ key: 'name', label: 'Campus' }]}
+        <RefAccordionSection<NameRow>
+          value="countries"
+          title="Países"
+          table="refCountry"
+          rows={refs.countries as NameRow[]}
+          countKey="universities"
+          usedByLabel="universidades"
+          createFields={{ type: 'name' }}
+          renderLabel={(r) => r.name}
         />
 
-        <RefTable
+        <RefAccordionSection<NameRow>
+          value="institution-types"
           title="Tipos de institución"
-          description="Giro institucional del socio."
-          rows={refs.institutionTypes}
-          columns={[{ key: 'name', label: 'Tipo' }]}
+          table="refInstitutionType"
+          rows={refs.institutionTypes as NameRow[]}
+          countKey="universities"
+          usedByLabel="universidades"
+          createFields={{ type: 'name' }}
+          renderLabel={(r) => r.name}
         />
 
-        <RefTable
-          title="Estados de convenio"
-          description="Ciclo de vida operacional de un convenio."
-          rows={refs.statuses}
-          columns={[
-            {
-              key: 'value',
-              label: 'Estado',
-              render: (row) => (
-                <span className="flex items-center gap-2">
-                  {row.color && (
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full border"
-                      style={{ backgroundColor: row.color }}
-                    />
-                  )}
-                  {row.value}
-                </span>
-              ),
-            },
-          ]}
+        <RefAccordionSection<NameRow>
+          value="campuses"
+          title="Campus Anáhuac"
+          table="refCampus"
+          rows={refs.campuses as NameRow[]}
+          countKey="universities"
+          usedByLabel="universidades"
+          createFields={{ type: 'name' }}
+          renderLabel={(r) => r.name}
         />
 
-        <RefTable
+        <RefAccordionSection<ValueRow>
+          value="utilizations"
           title="Utilización"
-          description="Nivel de uso activo del convenio."
-          rows={refs.utilizations}
-          columns={[
-            {
-              key: 'value',
-              label: 'Nivel',
-              render: (row) => (
-                <span className="flex items-center gap-2">
-                  {row.color && (
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full border"
-                      style={{ backgroundColor: row.color }}
-                    />
-                  )}
-                  {row.value}
-                </span>
-              ),
-            },
-          ]}
+          table="refUtilization"
+          rows={refs.utilizations as ValueRow[]}
+          countKey="universities"
+          usedByLabel="universidades"
+          editField="value"
+          createFields={{ type: 'value', hasColor: true }}
+          renderLabel={(r) => r.value}
+          extraHeader="Color"
+          renderExtra={(r) =>
+            r.color ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-3 w-3 rounded-full border"
+                  style={{ backgroundColor: r.color }}
+                />
+                <span className="font-mono text-xs">{r.color}</span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground text-xs">—</span>
+            )
+          }
         />
 
-        <RefTable
+        {/* ── Agreement ref tables ── */}
+        <RefAccordionSection<NameRow>
+          value="agreement-types"
+          title="Tipos de convenio"
+          table="refAgreementType"
+          rows={refs.agreementTypes as NameRow[]}
+          countKey="agreements"
+          usedByLabel="convenios"
+          createFields={{ type: 'name' }}
+          renderLabel={(r) => r.name}
+        />
+
+        <RefAccordionSection<ValueRow>
+          value="statuses"
+          title="Estados de convenio"
+          table="refStatus"
+          rows={refs.statuses as ValueRow[]}
+          countKey="agreements"
+          usedByLabel="convenios"
+          editField="value"
+          createFields={{ type: 'value', hasColor: true }}
+          renderLabel={(r) => r.value}
+          extraHeader="Color"
+          renderExtra={(r) =>
+            r.color ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block h-3 w-3 rounded-full border"
+                  style={{ backgroundColor: r.color }}
+                />
+                <span className="font-mono text-xs">{r.color}</span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground text-xs">—</span>
+            )
+          }
+        />
+
+        <RefAccordionSection<NameRow>
+          value="attrs"
           title="Acreditaciones"
-          description="Organismos acreditadores reconocidos."
-          rows={refs.attrs}
-          columns={[{ key: 'name', label: 'Organismo' }]}
+          table="refAttr"
+          rows={refs.attrs as NameRow[]}
+          countKey="agreementAttrs"
+          usedByLabel="convenios"
+          createFields={{ type: 'name' }}
+          renderLabel={(r) => r.name}
         />
-      </div>
 
-      {/* Full-width for larger tables */}
-      <RefTable
-        title="Países"
-        description="Países de origen de las universidades socias."
-        rows={refs.countries}
-        columns={[{ key: 'name', label: 'País' }]}
-      />
-
-      <RefTable
-        title="Tipos de convenio"
-        description="Modalidades de acuerdo académico disponibles."
-        rows={refs.agreementTypes}
-        columns={[{ key: 'name', label: 'Tipo' }]}
-      />
-
-      <RefTable
-        title="Escuelas beneficiarias"
-        description="Facultades y escuelas que pueden participar en los convenios."
-        rows={refs.beneficiaries}
-        columns={[
-          { key: 'cve', label: 'CVE' },
-          { key: 'name', label: 'Descripción' },
-        ]}
-      />
+        <RefAccordionSection<BenefRow>
+          value="beneficiaries"
+          title="Escuelas beneficiarias"
+          table="refBeneficiary"
+          rows={refs.beneficiaries as BenefRow[]}
+          countKey="agreements"
+          usedByLabel="convenios"
+          createFields={{ type: 'beneficiary' }}
+          renderLabel={(r) => r.name}
+          extraHeader="CVE"
+          renderExtra={(r) => (
+            <span className="font-mono text-sm font-medium">{r.cve}</span>
+          )}
+        />
+      </Accordion>
     </div>
   );
 }

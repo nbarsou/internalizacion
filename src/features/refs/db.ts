@@ -1,54 +1,72 @@
 import 'server-only';
-
 import { prisma } from '@/lib/prisma';
 
-// ── Individual ref fetchers ───────────────────────────────────────────────────
-// Each one is exported so a page can fetch only what it needs,
-// but the combined getAllRefs() is the common case for forms.
+// ── Fetchers with usage counts ────────────────────────────────────────────────
+// Each row includes a `_count` so the UI can show how many records reference
+// this value and block deletion when count > 0.
 
 export async function dbGetRegions() {
-  return prisma.refRegion.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refRegion.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { universities: true } } },
+  });
 }
 
 export async function dbGetCountries() {
-  return prisma.refCountry.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refCountry.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { universities: true } } },
+  });
 }
 
 export async function dbGetInstitutionTypes() {
-  return prisma.refInstitutionType.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refInstitutionType.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { universities: true } } },
+  });
 }
 
 export async function dbGetCampuses() {
-  return prisma.refCampus.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refCampus.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { universities: true } } },
+  });
 }
 
 export async function dbGetAgreementTypes() {
-  return prisma.refAgreementType.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refAgreementType.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { agreements: true } } },
+  });
 }
 
 export async function dbGetAttrs() {
-  return prisma.refAttr.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refAttr.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { agreementAttrs: true } } },
+  });
 }
 
 export async function dbGetStatuses() {
-  return prisma.refStatus.findMany({ orderBy: { value: 'asc' } });
+  return prisma.refStatus.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { agreements: true } } },
+  });
 }
 
 export async function dbGetUtilizations() {
-  return prisma.refUtilization.findMany({ orderBy: { value: 'asc' } });
+  return prisma.refUtilization.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { universities: true } } },
+  });
 }
 
 export async function dbGetBeneficiaries() {
-  return prisma.refBeneficiary.findMany({ orderBy: { name: 'asc' } });
+  return prisma.refBeneficiary.findMany({
+    orderBy: { id: 'asc' },
+    include: { _count: { select: { agreements: true } } },
+  });
 }
-
-// ── Combined fetcher ──────────────────────────────────────────────────────────
-// Fetches every ref table in parallel. Pass the result to form components
-// as props so they can populate their dropdowns without individual fetches.
-//
-// Usage in a page:
-//   const refs = await dbGetAllRefs();
-//   return <UniversityForm refs={refs} />;
 
 export async function dbGetAllRefs() {
   const [
@@ -72,7 +90,6 @@ export async function dbGetAllRefs() {
     dbGetUtilizations(),
     dbGetBeneficiaries(),
   ]);
-
   return {
     regions,
     countries,
@@ -86,98 +103,57 @@ export async function dbGetAllRefs() {
   };
 }
 
-// ── Typed return type ─────────────────────────────────────────────────────────
-// Inferred from the combined fetcher — import this wherever you need to type
-// a `refs` prop without duplicating the shape manually.
-//
-// Usage:
-//   import type { AllRefs } from '@/features/refs/db';
-//   interface Props { refs: AllRefs }
-
 export type AllRefs = Awaited<ReturnType<typeof dbGetAllRefs>>;
 
-// ── Ref validation helper ─────────────────────────────────────────────────────
-// Used in actions to verify a ref ID actually exists in the DB before writing.
-// Returns true if the ID is valid, false otherwise.
-// All checks run in parallel — one round-trip regardless of how many refs.
-//
-// Usage in an action:
-//   const valid = await dbValidateRefs({ regionId: 3, countryId: 7 });
-//   if (!valid) return { success: false, message: 'Valor de referencia inválido.' };
+// ── Write functions ───────────────────────────────────────────────────────────
 
-type RefValidationInput = {
-  regionId?: number;
-  countryId?: number;
-  institutionTypeId?: number;
-  campusId?: number;
-  utilizationId?: number;
-  typeId?: number;
-  statusId?: number;
-};
+export type RefTableName =
+  | 'refRegion'
+  | 'refCountry'
+  | 'refInstitutionType'
+  | 'refCampus'
+  | 'refAgreementType'
+  | 'refAttr'
+  | 'refStatus'
+  | 'refUtilization'
+  | 'refBeneficiary';
 
-export async function dbValidateRefs(
-  refs: RefValidationInput
-): Promise<boolean> {
-  const checks: Promise<unknown>[] = [];
+// Generic update — works for name-based tables (regions, countries, etc.)
+export async function dbUpdateRefName(
+  table: RefTableName,
+  id: number,
+  name: string
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (prisma[table] as any).update({ where: { id }, data: { name } });
+}
 
-  if (refs.regionId !== undefined) {
-    checks.push(
-      prisma.refRegion.findUnique({
-        where: { id: refs.regionId },
-        select: { id: true },
-      })
-    );
-  }
-  if (refs.countryId !== undefined) {
-    checks.push(
-      prisma.refCountry.findUnique({
-        where: { id: refs.countryId },
-        select: { id: true },
-      })
-    );
-  }
-  if (refs.institutionTypeId !== undefined) {
-    checks.push(
-      prisma.refInstitutionType.findUnique({
-        where: { id: refs.institutionTypeId },
-        select: { id: true },
-      })
-    );
-  }
-  if (refs.campusId !== undefined) {
-    checks.push(
-      prisma.refCampus.findUnique({
-        where: { id: refs.campusId },
-        select: { id: true },
-      })
-    );
-  }
-  if (refs.utilizationId !== undefined) {
-    checks.push(
-      prisma.refUtilization.findUnique({
-        where: { id: refs.utilizationId },
-        select: { id: true },
-      })
-    );
-  }
-  if (refs.typeId !== undefined) {
-    checks.push(
-      prisma.refAgreementType.findUnique({
-        where: { id: refs.typeId },
-        select: { id: true },
-      })
-    );
-  }
-  if (refs.statusId !== undefined) {
-    checks.push(
-      prisma.refStatus.findUnique({
-        where: { id: refs.statusId },
-        select: { id: true },
-      })
-    );
-  }
+// Status and Utilization use `value` not `name`
+export async function dbUpdateRefValue(
+  table: 'refStatus' | 'refUtilization',
+  id: number,
+  value: string
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (prisma[table] as any).update({ where: { id }, data: { value } });
+}
 
-  const results = await Promise.all(checks);
-  // If any result is null, it means that specific ID was not found in the DB.
-  return results.every((r) => r !== null);
+export async function dbDeleteRef(table: RefTableName, id: number) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (prisma[table] as any).delete({ where: { id } });
+}
+
+export async function dbCreateRef(
+  table: RefTableName,
+  data: { name?: string; value?: string; cve?: string; color?: string }
+) {
+  // Destructure to ensure id is never passed — ref tables use DB autoincrement
+  const { name, value, cve, color } = data;
+  const insertData = Object.fromEntries(
+    Object.entries({ name, value, cve, color }).filter(
+      ([, v]) => v !== undefined
+    )
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (prisma[table] as any).create({ data: insertData });
 }
