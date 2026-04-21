@@ -1,25 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { ObservationList } from '@/features/observations/components/observation-list';
+import { DeleteAgreementPopover } from './agreement-delete-popover';
 import type { AgreementItem } from '@/features/agreements/db';
 import type { ObservationItem } from '@/features/observations/db';
 
 interface AgreementRowWithObservationsProps {
   agreement: AgreementItem;
   observations: ObservationItem[];
+  editHref: string;
+  universityId: string;
+  onDeleted: () => void;
 }
 
 function statusClassName(value: string | undefined) {
@@ -43,17 +40,13 @@ function ObservationIndicator({
   observations: ObservationItem[];
 }) {
   if (observations.length === 0) return null;
-
-  // String literals — never import Prisma enums as values in client components
   const hasError = observations.some((o) => o.level === 'ERROR');
   const hasWarning = observations.some((o) => o.level === 'WARNING');
-
   const className = hasError
     ? 'bg-red-100 text-red-700 border-red-200'
     : hasWarning
       ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
       : 'bg-blue-100 text-blue-700 border-blue-200';
-
   return (
     <Badge variant="outline" className={`ml-1.5 text-[10px] ${className}`}>
       {observations.length}
@@ -64,14 +57,15 @@ function ObservationIndicator({
 export function AgreementRowWithObservations({
   agreement,
   observations,
+  editHref,
+  universityId,
+  onDeleted,
 }: AgreementRowWithObservationsProps) {
   const [expanded, setExpanded] = useState(false);
 
   const { id, type, status, spots, beneficiaries, attrs } = agreement;
-
   const schoolNames = beneficiaries.map((b) => b.beneficiary.name);
   const attrNames = attrs.map((a) => a.attr.name);
-
   const hasObs = observations.length > 0;
 
   return (
@@ -158,29 +152,25 @@ export function AgreementRowWithObservations({
           </Badge>
         </TableCell>
 
-        {/* Actions — stop propagation so dropdown doesn't toggle expand */}
+        {/* Actions — stop propagation so they don't toggle expand */}
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem>Ver detalles</DropdownMenuItem>
-              <DropdownMenuItem>Editar plazas</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                Archivar convenio
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+              <Link href={editHref}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <DeleteAgreementPopover
+              id={id}
+              universityId={universityId}
+              typeName={type?.name ?? 'convenio'}
+              onDone={onDeleted}
+            />
+          </div>
         </TableCell>
       </TableRow>
 
-      {/* Inline observations panel — spans all columns */}
+      {/* Inline observations panel */}
       {expanded && hasObs && (
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={8} className="bg-muted/30 px-8 py-3">

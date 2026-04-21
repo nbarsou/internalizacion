@@ -4,13 +4,10 @@ import { prisma } from '@/lib/prisma';
 import { notDeleted } from '@/lib/db-filters';
 import type { Prisma } from '@/generated/prisma/client';
 
-// ── Custom error classes ──────────────────────────────────────────────────────
-
 export class UniversityNotFoundError extends Error {}
 export class DuplicateSlugError extends Error {}
 
-// ── Shared include shape ──────────────────────────────────────────────────────
-// Define once, reuse in every read so the return types stay consistent.
+// ── Shared include shapes ─────────────────────────────────────────────────────
 
 const universityInclude = {
   region: true,
@@ -23,6 +20,11 @@ const universityInclude = {
 const universityListInclude = {
   ...universityInclude,
   _count: { select: { agreements: { where: notDeleted } } },
+  // Lightweight — only the type name, used for the agreement-type facet filter
+  agreements: {
+    where: notDeleted,
+    select: { type: { select: { name: true } } },
+  },
 } satisfies Prisma.UniversityInclude;
 
 const universityDetailInclude = {
@@ -47,7 +49,6 @@ const universityDetailInclude = {
 } satisfies Prisma.UniversityInclude;
 
 // ── Inferred return types ─────────────────────────────────────────────────────
-// Import these wherever you need to type a university prop.
 
 export type UniversityListItem = Prisma.UniversityGetPayload<{
   include: typeof universityListInclude;
