@@ -7,7 +7,8 @@ import { InviteManagement } from '@/features/invites/components/invite-managemen
 export const metadata = { title: 'Administración de usuarios' };
 
 export default async function AdminPage() {
-  const { can } = await requirePermission('user:view');
+  const { can, actingUserId, actingIsSuperuser } =
+    await requirePermission('user:view');
 
   const [users, pendingInvites] = await Promise.all([
     dbGetUsers(),
@@ -19,13 +20,21 @@ export default async function AdminPage() {
       {/* ── Invite section (gated) ─────────────────────────────── */}
       {can['user:invite'] && (
         <section aria-labelledby="invite-heading" className="space-y-3">
-          <InviteManagement pendingInvites={pendingInvites} />
+          <InviteManagement
+            pendingInvites={pendingInvites}
+            actingIsSuperuser={actingIsSuperuser}
+          />
         </section>
       )}
 
       {/* ── User list ──────────────────────────────────────────── */}
       <section aria-labelledby="members-heading" className="space-y-3">
-        <UserManagement users={users} can={can} />
+        <UserManagement
+          users={users}
+          can={can}
+          actingIsSuperuser={actingIsSuperuser}
+          actingUserId={actingUserId}
+        />
       </section>
     </div>
   );
