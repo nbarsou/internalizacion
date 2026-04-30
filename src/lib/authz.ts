@@ -11,3 +11,14 @@ export async function requirePermission(permission: Permission) {
 
   return { can: buildPermissions(role) };
 }
+
+export async function checkPermission(
+  permission: Permission
+): Promise<
+  | { authorized: true; userId: string; can: Record<Permission, boolean> }
+  | { authorized: false }
+> {
+  const { userId, role } = await verifySession();
+  if (!hasPermission(role, permission)) return { authorized: false };
+  return { authorized: true, userId, can: buildPermissions(role) };
+}
