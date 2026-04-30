@@ -23,7 +23,11 @@ export const auth = betterAuth({
       // newSession is available here, not on the sign-in path
       if (ctx.path.startsWith('/callback/') && ctx.context.newSession) {
         const { email, id } = ctx.context.newSession.user;
-        await dbAcceptPendingInvite(email, id);
+        try {
+          await dbAcceptPendingInvite(email, id);
+        } catch (err) {
+          console.error('[auth.after] Failed to accept invite', { email, err });
+        }
       }
     }),
   },

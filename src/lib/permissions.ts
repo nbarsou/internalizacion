@@ -81,3 +81,29 @@ export function buildPermissions(role: Role): Record<Permission, boolean> {
 }
 
 export { Role };
+
+/**
+ * Solo ADMIN puede modificar roles. Un ADMIN no puede modificar a otro ADMIN
+ * (ni a un superusuario). El superusuario puede modificar a cualquiera
+ * excepto a otros superusuarios.
+ */
+export function canModifyUser(
+  acting: { role: Role; isSuperuser: boolean },
+  target: { role: Role; isSuperuser: boolean }
+): boolean {
+  if (target.isSuperuser) return false;
+  if (acting.isSuperuser) return true;
+  if (acting.role !== Role.ADMIN) return false;
+  return target.role !== Role.ADMIN;
+}
+
+/**
+ * Solo el superusuario puede asignar ADMIN.
+ */
+export function canAssignRole(
+  acting: { isSuperuser: boolean },
+  newRole: Role
+): boolean {
+  if (acting.isSuperuser) return true;
+  return newRole !== Role.ADMIN;
+}
