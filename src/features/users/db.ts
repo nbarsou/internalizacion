@@ -3,17 +3,9 @@ import 'server-only';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@/generated/prisma/client';
 
-// ── Custom error classes ──────────────────────────────────────────────────────
-
 export class UserNotFoundError extends Error {}
 export class CannotModifySelfError extends Error {}
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-// Inferred return type — import wherever you need to type a user prop.
-export type AdminUser = Awaited<ReturnType<typeof dbGetUsers>>[number];
-
-// ── Read functions ────────────────────────────────────────────────────────────
+export class InsufficientRoleError extends Error {}
 
 export async function dbGetUsers() {
   return prisma.user.findMany({
@@ -21,52 +13,101 @@ export async function dbGetUsers() {
       id: true,
       name: true,
       email: true,
-      image: true,
       role: true,
-      createdAt: true,
-      emailVerified: true,
+      isSuperuser: true,
+      permissionExpiresAt: true,
     },
     orderBy: { createdAt: 'desc' },
+    take: 100,
   });
 }
+export type UsersDTO = Awaited<ReturnType<typeof dbGetUsers>>[number];
 
 export async function dbGetUserById(id: string) {
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, name: true, email: true, role: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isSuperuser: true,
+    },
   });
+  if (!user) throw new UserNotFoundError();
+  return user;
 }
-
-// ── Write functions ───────────────────────────────────────────────────────────
+export type UserDTO = Awaited<ReturnType<typeof dbGetUserById>>;
 
 export async function dbUpdateUserRole(
-  targetUserId: string,
-  actingUserId: string,
+  actingUser: string,
+  userId: string,
   newRole: Role
 ) {
-  if (targetUserId === actingUserId) throw new CannotModifySelfError();
+  if (actingUser === userId) throw new CannotModifySelfError();
 
-  // Simply update the role. Better-Auth will pick up the change
-  // automatically on the user's next request.
-  const result = await prisma.user.updateMany({
-    where: { id: targetUserId },
-    data: { role: newRole },
+  await prisma.$transaction(async (tx) => {
+    // Simply update the role. Better-Auth will pick up the change
+    // automatically on the user's next request.
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isSuperuser: true },
+    });
+    if (!user) throw new UserNotFoundError();
+    if (user.isSuperuser) throw new InsufficientRoleError();
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        role: newRole,
+      },
+    });
   });
-
-  if (result.count === 0) throw new UserNotFoundError();
 }
 
-// Demotes user to WAITLISTED rather than deleting the auth record.
-export async function dbRemoveUser(targetUserId: string, actingUserId: string) {
-  if (targetUserId === actingUserId) throw new CannotModifySelfError();
+export async function dbUpdateUserExpirationDate(
+  actingUser: string,
+  userId: string,
+  newDate: Date | null
+) {
+  if (actingUser === userId) throw new CannotModifySelfError();
 
-  // Demote the user to WAITLISTED.
-  // On their next request, `verifySession` will catch this role and
-  // safely redirect them to the waitlist screen.
-  const result = await prisma.user.updateMany({
-    where: { id: targetUserId },
-    data: { role: Role.WAITLISTED },
+  await prisma.$transaction(async (tx) => {
+    // Simply update the role. Better-Auth will pick up the change
+    // automatically on the user's next request.
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isSuperuser: true },
+    });
+    if (!user) throw new UserNotFoundError();
+    if (user.isSuperuser) throw new InsufficientRoleError();
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        permissionExpiresAt: newDate,
+      },
+    });
   });
+}
 
-  if (result.count === 0) throw new UserNotFoundError();
+// ── Expiry check (lazy, called in verifySession) ──────────────────────────────
+
+export async function dbCheckAndExpireUser(userId: string): Promise<Role> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, permissionExpiresAt: true },
+  });
+  if (!user) return 'WAITLISTED';
+
+  // If expiry is set and has passed, downgrade to WAITLISTED
+  if (user.permissionExpiresAt && user.permissionExpiresAt < new Date()) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'WAITLISTED', permissionExpiresAt: null },
+    });
+    return 'WAITLISTED';
+  }
+
+  return user.role as Role;
 }

@@ -1,95 +1,116 @@
 'use server';
+import 'server-only';
 
-import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod/v4';
 import { verifySession } from '@/lib/authn';
-import { requirePermission } from '@/lib/authz';
-import type { FormState } from '@/lib/form-utils';
-import { changeRoleSchema } from './schemas';
+import { checkPermission, requirePermission } from '@/lib/authz';
+import { ROLE_OPTIONS, type Role } from '@/lib/enums';
 import {
   dbUpdateUserRole,
-  dbRemoveUser,
-  UserNotFoundError,
   CannotModifySelfError,
+  InsufficientRoleError,
+  UserNotFoundError,
+  dbUpdateUserExpirationDate,
 } from './db';
-import { Role } from '@/generated/prisma/client';
+import { FormState } from '@/lib/form-utils';
 
-// ── Change role ───────────────────────────────────────────────────────────────
-
-export type ChangeRoleTFields = 'role';
-export type ChangeRoleActionState = FormState<ChangeRoleTFields>;
+const changeRoleArgsSchema = z.object({
+  targetUserId: z.cuid(),
+  role: z.enum(ROLE_OPTIONS, { error: 'Rol inválido' }),
+});
 
 export async function changeUserRoleAction(
   targetUserId: string,
-  prevState: ChangeRoleActionState,
-  formData: FormData
-): Promise<ChangeRoleActionState> {
-  // 1. AuthN + AuthZ
-  const { userId } = await verifySession();
-  await requirePermission('member:change_role');
-
-  // 2. Parse
-  const rawData = { role: formData.get('role') };
-
-  // 3. Validate
-  const validated = changeRoleSchema.safeParse(rawData);
-  if (!validated.success) {
-    return { errors: z.flattenError(validated.error).fieldErrors };
-  }
-
-  // 4. Mutate
-  try {
-    // dbUpdateUserRole now handles both updating the role AND deleting
-    // the user's sessions in a single Prisma transaction.
-    await dbUpdateUserRole(targetUserId, userId, validated.data.role as Role);
-
-    revalidatePath('/admin');
-    return { success: true, message: 'Rol actualizado correctamente.' };
-  } catch (error) {
-    if (error instanceof CannotModifySelfError) {
-      return { success: false, message: 'No puedes modificar tu propio rol.' };
-    }
-    if (error instanceof UserNotFoundError) {
-      return { success: false, message: 'Usuario no encontrado.' };
-    }
-    console.error('[changeUserRoleAction]:', error);
+  newRole: Role
+): Promise<FormState> {
+  const authz = await checkPermission('user:change_role');
+  if (!authz.authorized)
     return {
-      success: false,
-      message: 'Error al actualizar el rol. Inténtalo de nuevo.',
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
     };
+
+  const parsedArgs = changeRoleArgsSchema.safeParse({
+    targetUserId: targetUserId,
+    role: newRole,
+  });
+  if (!parsedArgs.success) {
+    return {
+      type: 'error',
+      message: 'Algo salio mal!',
+    };
+  }
+  try {
+    await dbUpdateUserRole(
+      authz.userId,
+      parsedArgs.data.targetUserId,
+      parsedArgs.data.role
+    );
+    revalidatePath('/users');
+    return { type: 'success', message: 'Rol actualizado correctamente.' };
+  } catch (e) {
+    if (e instanceof CannotModifySelfError)
+      return { type: 'error', message: 'No puedes modificar tu propio rol.' };
+    if (e instanceof InsufficientRoleError)
+      return {
+        type: 'error',
+        message: 'No puedes asignar un rol igual o superior al tuyo.',
+      };
+    if (e instanceof UserNotFoundError)
+      return { type: 'error', message: 'Usuario no encontrado.' };
+    return { type: 'error', message: 'Error al actualizar el rol.' };
   }
 }
 
-// ── Remove user ───────────────────────────────────────────────────────────────
-// Not useActionState — called with useTransition from the delete modal.
-// Returns a simple success/message shape instead of FormState.
-
-export async function removeUserAction(
-  targetUserId: string
-): Promise<{ success: boolean; message: string }> {
-  // 1. AuthN + AuthZ
-  const { userId } = await verifySession();
-  await requirePermission('member:remove');
-
-  // 2. Mutate
-  try {
-    // dbRemoveUser should now handle both deleting the user AND
-    // deleting their active sessions in a Prisma transaction.
-    await dbRemoveUser(targetUserId, userId);
-
-    revalidatePath('/admin');
-    return { success: true, message: 'Usuario eliminado correctamente.' };
-  } catch (error) {
-    if (error instanceof CannotModifySelfError) {
-      return { success: false, message: 'No puedes eliminarte a ti mismo.' };
+const updateExpirySchema = z
+  .object({
+    targetUserId: z.string().min(1),
+    newDate: z.date().optional(),
+  })
+  .refine((data) => {
+    if (data.newDate) {
+      return new Date() < data.newDate;
     }
-    if (error instanceof UserNotFoundError) {
-      return { success: false, message: 'Usuario no encontrado.' };
-    }
-    console.error('[removeUserAction]:', error);
+    return true;
+  });
+
+export async function updateUserExpiryAction(
+  targetUserId: string,
+  newDate: string
+): Promise<FormState> {
+  const authz = await checkPermission('user:change_role');
+  if (!authz.authorized)
     return {
-      success: false,
-      message: 'Error al eliminar el usuario. Inténtalo de nuevo.',
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
     };
+
+  const validatedFields = updateExpirySchema.safeParse({
+    targetUserId: targetUserId,
+    newDate:
+      typeof newDate === 'string' && newDate ? new Date(newDate) : undefined,
+  });
+  if (!validatedFields.success) {
+    console.error(validatedFields.error);
+    return { type: 'error', message: 'Fecha inválida.' };
+  }
+
+  try {
+    await dbUpdateUserExpirationDate(
+      authz.userId,
+      validatedFields.data.targetUserId,
+      validatedFields.data.newDate ?? null
+    );
+    revalidatePath('/users');
+    return { type: 'success', message: 'Fecha actualizada.' };
+  } catch (error) {
+    if (error instanceof CannotModifySelfError)
+      return { type: 'error', message: 'No puedes modificarte a ti mismo.' };
+    if (error instanceof InsufficientRoleError)
+      return { type: 'error', message: 'Permisos insuficientes.' };
+    if (error instanceof UserNotFoundError)
+      return { type: 'error', message: 'Usuario no encontrado.' };
+    return { type: 'error', message: 'Error al actualizar la fecha.' };
   }
 }
