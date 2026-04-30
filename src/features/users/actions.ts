@@ -3,8 +3,7 @@ import 'server-only';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod/v4';
-import { verifySession } from '@/lib/authn';
-import { checkPermission, requirePermission } from '@/lib/authz';
+import { checkPermission } from '@/lib/authz';
 import { ROLE_OPTIONS, type Role } from '@/lib/enums';
 import {
   dbUpdateUserRole,

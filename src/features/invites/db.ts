@@ -1,6 +1,5 @@
 import 'server-only';
 import { prisma } from '@/lib/prisma';
-import type { Role } from '@/lib/enums';
 import { InviteInput } from './schemas';
 
 // ── Error classes ─────────────────────────────────────────────────────────────
