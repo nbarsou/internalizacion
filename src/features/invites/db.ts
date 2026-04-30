@@ -20,7 +20,7 @@ export type PendingInvite = Awaited<
 >[number];
 
 // ── Create ────────────────────────────────────────────────────────────────────
-
+// TODO: Fix TOCTOU ISSUE with transaction
 export async function dbCreateInvite(data: InviteInput, createdBy: string) {
   // Block if a live account already exists for this email
   const existing = await prisma.user.findUnique({
@@ -56,6 +56,11 @@ export async function dbDeleteInvite(id: string) {
 export async function dbAcceptPendingInvite(email: string, userId: string) {
   const invite = await prisma.pendingInvite.findUnique({ where: { email } });
   if (!invite) return; // no invite — user keeps default WAITLISTED role
+
+  if (invite.expiresAt && invite.expiresAt < new Date()) {
+    await prisma.pendingInvite.delete({ where: { email } });
+    return; // queda WAITLISTED
+  }
 
   await prisma.$transaction([
     prisma.user.update({

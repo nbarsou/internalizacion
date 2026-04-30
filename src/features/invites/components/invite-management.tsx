@@ -21,18 +21,22 @@ import type { PendingInvite } from '../db';
 
 interface InviteManagementProps {
   pendingInvites: PendingInvite[];
+  actingIsSuperuser: boolean;
 }
 
 export function InviteManagement({
-  pendingInvites: initial,
+  pendingInvites,
+  actingIsSuperuser,
 }: InviteManagementProps) {
   // Optimistically remove deleted invites from the list
   const [optimisticInvites, removeOptimistic] = useOptimistic(
-    initial,
+    pendingInvites,
     (current, idToRemove: string) => current.filter((i) => i.id !== idToRemove)
   );
   const [isPending, startTransition] = useTransition();
 
+  // TODO: Issue with error handling, if action fails we diplay optimistic data
+  // until next fetch.
   async function handleDelete(id: string) {
     startTransition(async () => {
       removeOptimistic(id);
@@ -56,7 +60,7 @@ export function InviteManagement({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <InviteForm />
+        <InviteForm actingIsSuperuser={actingIsSuperuser} />
 
         {/* ── Pending list ──────────────────────────────────── */}
         {optimisticInvites.length > 0 && (

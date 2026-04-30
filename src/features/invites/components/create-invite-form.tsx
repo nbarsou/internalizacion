@@ -51,7 +51,11 @@ function ErrorSlot({ id, message }: { id?: string; message?: string }) {
   );
 }
 
-export function InviteForm() {
+interface InviteFormProps {
+  actingIsSuperuser: boolean;
+}
+
+export function InviteForm({ actingIsSuperuser }: InviteFormProps) {
   const [state, dispatch, isPending] = useActionState<
     InviteActionState,
     FormData
@@ -161,7 +165,9 @@ export function InviteForm() {
                     <SelectValue placeholder="Rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ROLE_OPTIONS.filter((v) => v !== 'ADMIN').map((v) => (
+                    {ROLE_OPTIONS.filter(
+                      (r) => actingIsSuperuser || r !== 'ADMIN'
+                    ).map((v) => (
                       <SelectItem key={v} value={v}>
                         {ROLE_LABELS[v]}
                       </SelectItem>

@@ -66,15 +66,14 @@ const deleteInviteArgsSchema = z.object({
 });
 
 export async function deleteInviteAction(inviteId: string): Promise<FormState> {
-  const parsedArgs = deleteInviteArgsSchema.safeParse({ inviteId });
-  if (!parsedArgs.success) return { type: 'error', message: 'Algo salio mal!' };
-
   const authz = await checkPermission('user:invite');
   if (!authz.authorized)
     return {
       type: 'error',
       message: 'No tienes permiso para realizar esta acción.',
     };
+  const parsedArgs = deleteInviteArgsSchema.safeParse({ inviteId });
+  if (!parsedArgs.success) return { type: 'error', message: 'Algo salio mal!' };
 
   try {
     await dbDeleteInvite(parsedArgs.data.inviteId);
