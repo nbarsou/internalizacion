@@ -157,3 +157,13 @@ export async function dbCreateRef(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (prisma[table] as any).create({ data: insertData });
 }
+
+export async function dbGetUsedColors(
+  table: RefTableName
+): Promise<(string | null)[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = await (prisma[table] as any).findMany({
+    select: { color: true },
+  });
+  return rows.map((r: { color: string | null }) => r.color);
+}
