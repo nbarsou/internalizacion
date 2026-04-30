@@ -1,13 +1,14 @@
+import 'server-only';
 import { Role } from '@/generated/prisma/client';
 
 export type Permission =
   | 'university:view'
   | 'university:edit'
   | 'university:delete'
-  | 'member:view'
-  | 'member:invite'
-  | 'member:remove'
-  | 'member:change_role'
+  | 'user:view'
+  | 'user:invite'
+  | 'user:remove'
+  | 'user:change_role'
   | 'agreement:view'
   | 'agreement:create'
   | 'agreement:edit'
@@ -20,10 +21,10 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'university:view',
     'university:edit',
     'university:delete',
-    'member:view',
-    'member:invite',
-    'member:remove',
-    'member:change_role',
+    'user:view',
+    'user:invite',
+    'user:remove',
+    'user:change_role',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
@@ -32,8 +33,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.EDITOR]: [
     'university:view',
     'university:edit',
-    'member:view',
-    'member:invite',
+    'user:view',
+    'user:invite',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
@@ -64,10 +65,10 @@ export function buildPermissions(role: Role): Record<Permission, boolean> {
     'university:view',
     'university:edit',
     'university:delete',
-    'member:view',
-    'member:invite',
-    'member:remove',
-    'member:change_role',
+    'user:view',
+    'user:invite',
+    'user:remove',
+    'user:change_role',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
