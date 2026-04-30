@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-import { Role } from '@/generated/prisma/client';
+import { Prisma, Role } from '@/generated/prisma/client';
+import { canAssignRole, canModifyUser } from '@/lib/permissions';
 
 export class UserNotFoundError extends Error {}
 export class CannotModifySelfError extends Error {}
@@ -39,66 +40,92 @@ export async function dbGetUserById(id: string) {
 }
 export type UserDTO = Awaited<ReturnType<typeof dbGetUserById>>;
 
+async function loadActorAndTarget(
+  tx: Prisma.TransactionClient,
+  actingUserId: string,
+  targetUserId: string
+) {
+  const [acting, target] = await Promise.all([
+    tx.user.findUnique({
+      where: { id: actingUserId },
+      select: { role: true, isSuperuser: true },
+    }),
+    tx.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true, isSuperuser: true },
+    }),
+  ]);
+  if (!acting || !target) throw new UserNotFoundError();
+  return { acting, target };
+}
+
 export async function dbUpdateUserRole(
-  actingUser: string,
-  userId: string,
+  actingUserId: string,
+  targetUserId: string,
   newRole: Role
 ) {
-  if (actingUser === userId) throw new CannotModifySelfError();
+  if (actingUserId === targetUserId) throw new CannotModifySelfError();
 
   await prisma.$transaction(async (tx) => {
-    // Simply update the role. Better-Auth will pick up the change
-    // automatically on the user's next request.
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { role: true, isSuperuser: true },
-    });
-    if (!user) throw new UserNotFoundError();
-    if (user.isSuperuser) throw new InsufficientRoleError();
+    const { acting, target } = await loadActorAndTarget(
+      tx,
+      actingUserId,
+      targetUserId
+    );
+
+    if (!canModifyUser(acting, target)) {
+      throw new InsufficientRoleError();
+    }
+
+    // ← esto es lo nuevo
+    if (!canAssignRole(acting, newRole)) {
+      throw new InsufficientRoleError(
+        'Solo el superusuario puede asignar el rol de administrador.'
+      );
+    }
 
     await tx.user.update({
-      where: { id: userId },
-      data: {
-        role: newRole,
-      },
+      where: { id: targetUserId },
+      data: { role: newRole },
     });
   });
 }
 
 export async function dbUpdateUserExpirationDate(
-  actingUser: string,
-  userId: string,
+  actingUserId: string,
+  targetUserId: string,
   newDate: Date | null
 ) {
-  if (actingUser === userId) throw new CannotModifySelfError();
+  if (actingUserId === targetUserId) throw new CannotModifySelfError();
 
   await prisma.$transaction(async (tx) => {
-    // Simply update the role. Better-Auth will pick up the change
-    // automatically on the user's next request.
-    const user = await tx.user.findUnique({
-      where: { id: userId },
-      select: { role: true, isSuperuser: true },
-    });
-    if (!user) throw new UserNotFoundError();
-    if (user.isSuperuser) throw new InsufficientRoleError();
+    const { acting, target } = await loadActorAndTarget(
+      tx,
+      actingUserId,
+      targetUserId
+    );
+
+    if (!canModifyUser(acting, target)) {
+      throw new InsufficientRoleError();
+    }
 
     await tx.user.update({
-      where: { id: userId },
-      data: {
-        permissionExpiresAt: newDate,
-      },
+      where: { id: targetUserId },
+      data: { permissionExpiresAt: newDate },
     });
   });
 }
 
 // ── Expiry check (lazy, called in verifySession) ──────────────────────────────
 
+// TODO: Add a parseRole function
 export async function dbCheckAndExpireUser(userId: string): Promise<Role> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, permissionExpiresAt: true },
+    select: { role: true, permissionExpiresAt: true, isSuperuser: true },
   });
   if (!user) return 'WAITLISTED';
+  if (user.isSuperuser) return user.role as Role; // ← agregar
 
   // If expiry is set and has passed, downgrade to WAITLISTED
   if (user.permissionExpiresAt && user.permissionExpiresAt < new Date()) {

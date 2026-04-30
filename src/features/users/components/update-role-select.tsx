@@ -15,11 +15,13 @@ import { changeUserRoleAction } from '../actions';
 interface UpdateRoleSelectProps {
   userId: string;
   currentRole: Role;
+  actingIsSuperuser: boolean;
 }
 
 export function UpdateRoleSelect({
   userId,
   currentRole,
+  actingIsSuperuser,
 }: UpdateRoleSelectProps) {
   const [isPending, startTransition] = useTransition();
   const [optimisticRole, setOptimisticRole] = useOptimistic(currentRole);
@@ -36,6 +38,11 @@ export function UpdateRoleSelect({
     });
   }
 
+  // En el render, filtrar opciones:
+  const options = ROLE_OPTIONS.filter(
+    (r) => actingIsSuperuser || r !== 'ADMIN'
+  );
+
   return (
     <Select
       value={optimisticRole}
@@ -46,7 +53,7 @@ export function UpdateRoleSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {ROLE_OPTIONS.map((role) => (
+        {options.map((role) => (
           <SelectItem key={role} value={role} className="text-xs">
             {ROLE_LABELS[role]}
           </SelectItem>

@@ -15,7 +15,7 @@ import {
 import { FormState } from '@/lib/form-utils';
 
 const changeRoleArgsSchema = z.object({
-  targetUserId: z.cuid(),
+  targetUserId: z.string().min(1),
   role: z.enum(ROLE_OPTIONS, { error: 'Rol inválido' }),
 });
 
