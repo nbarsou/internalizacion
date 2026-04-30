@@ -37,7 +37,7 @@ import type { AllRefs } from '@/features/refs/db';
 
 interface RawFormValues {
   name: string;
-  pagina_web: string;
+  web_page: string;
   start: string;
   expires: string;
   isCatholic: boolean;
@@ -69,7 +69,7 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
   } = useForm<RawFormValues>({
     defaultValues: {
       name: '',
-      pagina_web: '',
+      web_page: '',
       start: '',
       expires: '',
       isCatholic: false,
@@ -165,16 +165,16 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
           <FieldSeparator />
 
           {/* Website */}
-          <Field data-invalid={!!errors.pagina_web}>
-            <FieldLabel htmlFor="pagina_web">Sitio web</FieldLabel>
+          <Field data-invalid={!!errors.web_page}>
+            <FieldLabel htmlFor="web_page">Sitio web</FieldLabel>
             <Input
-              id="pagina_web"
+              id="web_page"
               placeholder="https://www.ejemplo.edu"
-              aria-invalid={!!errors.pagina_web}
-              {...register('pagina_web')}
+              aria-invalid={!!errors.web_page}
+              {...register('web_page')}
             />
             <FieldDescription>Incluye https:// al inicio.</FieldDescription>
-            <FieldError errors={[errors.pagina_web]} />
+            <FieldError errors={[errors.web_page]} />
           </Field>
 
           <FieldSeparator />

@@ -35,7 +35,7 @@ import type { AllRefs } from '@/features/refs/db';
 
 interface RawFormValues {
   name: string;
-  pagina_web: string;
+  web_page: string;
   start: string;
   expires: string;
   isCatholic: boolean;
@@ -76,7 +76,7 @@ export function UniversityEditForm({
   } = useForm<RawFormValues>({
     defaultValues: {
       name: university.name,
-      pagina_web: university.pagina_web ?? '',
+      web_page: university.web_page ?? '',
       start: toDateInput(university.start),
       expires: toDateInput(university.expires),
       isCatholic: university.isCatholic,
@@ -159,14 +159,14 @@ export function UniversityEditForm({
             <FieldError errors={[errors.name]} />
           </Field>
           <FieldSeparator />
-          <Field data-invalid={!!errors.pagina_web}>
+          <Field data-invalid={!!errors.web_page}>
             <FieldLabel htmlFor="eu-web">Sitio web</FieldLabel>
             <Input
               id="eu-web"
               placeholder="https://"
-              {...register('pagina_web')}
+              {...register('web_page')}
             />
-            <FieldError errors={[errors.pagina_web]} />
+            <FieldError errors={[errors.web_page]} />
           </Field>
           <FieldSeparator />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

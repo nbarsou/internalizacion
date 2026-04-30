@@ -285,7 +285,7 @@ export function buildColumns(opts: {
       id: 'name',
       header: ({ column }) => <SortableHeader column={column} label="Nombre" />,
       cell: ({ row }) => {
-        const { slug, name, pagina_web } = row.original;
+        const { slug, name, web_page } = row.original;
         return (
           <div className="flex max-w-[220px] min-w-0 flex-col gap-0.5">
             <Link
@@ -295,9 +295,9 @@ export function buildColumns(opts: {
             >
               {truncate(name, 40)}
             </Link>
-            {pagina_web && (
+            {web_page && (
               <a
-                href={pagina_web}
+                href={web_page}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground flex items-center gap-0.5 text-xs hover:text-blue-600"

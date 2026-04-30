@@ -44,7 +44,7 @@ export function UniversityDisplay({ university }: UniversityDisplayProps) {
     institutionType,
     campus,
     utilization,
-    pagina_web,
+    web_page,
     isCatholic,
     start,
     expires,
@@ -60,15 +60,15 @@ export function UniversityDisplay({ university }: UniversityDisplayProps) {
       {/* Name + website */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
-        {pagina_web && (
+        {web_page && (
           <a
-            href={pagina_web}
+            href={web_page}
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground mt-1 flex items-center gap-1 text-sm hover:text-blue-600"
           >
             <Globe className="h-3.5 w-3.5" />
-            {new URL(pagina_web).hostname}
+            {new URL(web_page).hostname}
             <ExternalLink className="h-3 w-3" />
           </a>
         )}

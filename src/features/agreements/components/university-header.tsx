@@ -7,8 +7,7 @@ interface UniversityHeaderProps {
 }
 
 export function UniversityHeader({ university }: UniversityHeaderProps) {
-  const { name, city, country, institutionType, pagina_web, campus } =
-    university;
+  const { name, city, country, institutionType, web_page, campus } = university;
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -32,14 +31,14 @@ export function UniversityHeader({ university }: UniversityHeaderProps) {
               Campus {campus.name}
             </span>
           )}
-          {pagina_web && (
+          {web_page && (
             <a
-              href={pagina_web}
+              href={web_page}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-blue-600 hover:underline"
             >
-              {new URL(pagina_web).hostname}
+              {new URL(web_page).hostname}
               <ExternalLink className="h-3 w-3" />
             </a>
           )}

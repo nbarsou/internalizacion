@@ -1,17 +1,27 @@
 import { z } from 'zod/v4';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const refId = (label: string) =>
   z
     .number({ error: `Selecciona un valor para ${label}` })
     .int()
     .min(0);
 
-// ── Schema ────────────────────────────────────────────────────────────────────
-// Rule: every field must resolve to a concrete type (no `| undefined`) so that
-// react-hook-form's generic resolves cleanly against CreateUniversityInput.
-// Use .default('') instead of .optional() for optional string fields.
+export const UNIVERSITY_FIELDS = {
+  name: { required: true, label: 'Nombre' },
+  start: { required: true, label: 'Inicio de la relación' },
+  expires: { required: false, label: 'Expiración' },
+  isCatholic: { required: true, label: 'Catolica' },
+  webPage: { required: false, label: 'Pagina Web' },
+  city: { required: false, label: 'Ciudad' },
+  address: { required: false, label: 'Dirección' },
+  regionId: { required: true, label: 'Región' },
+  countryIf: { required: true, label: 'País' },
+  institutionTypeId: { required: true, label: 'Tipo de Institución' },
+  campusId: { required: true, label: 'Campus' },
+  utilizationId: { required: true, label: 'Utilización' },
+};
+
+export type UniversityFields = keyof typeof UNIVERSITY_FIELDS;
 
 export const createUniversitySchema = z
   .object({
@@ -22,34 +32,14 @@ export const createUniversitySchema = z
       .trim(),
 
     // Empty string is valid (no website); if non-empty must be a valid URL
-    pagina_web: z
-      .string()
-      .trim()
-      .max(500)
-      .refine(
-        (v) => v === '' || /^https?:\/\/.+/.test(v),
-        'Debe ser una URL válida (incluye https://)'
-      )
-      .default(''),
-
-    start: z
-      .string()
-      .min(1, 'La fecha de inicio es obligatoria')
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
-
-    // Empty string means indefinido — validated only when non-empty
-    expires: z
-      .string()
-      .refine(
-        (v) => v === '' || /^\d{4}-\d{2}-\d{2}$/.test(v),
-        'Formato de fecha inválido'
-      )
-      .default(''),
+    start: z.date('La fecha de inicio es obligatoria'),
+    expires: z.date().optional(),
 
     isCatholic: z.boolean().default(false),
+    web_page: z.url().optional(),
 
-    city: z.string().trim().max(150).default(''),
-    address: z.string().trim().max(500).default(''),
+    city: z.string().trim().max(150).optional(),
+    address: z.string().trim().max(500).optional(),
 
     regionId: refId('región'),
     countryId: refId('país'),

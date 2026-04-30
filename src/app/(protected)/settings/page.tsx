@@ -6,22 +6,15 @@ import type {
   ValueRow,
   BenefRow,
 } from '@/features/refs/components/ref-table';
+import { requirePermission } from '@/lib/authz';
 
 export default async function RefsPage() {
+  const { can } = await requirePermission('user:view');
+
   const refs = await dbGetAllRefs();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Tablas de referencia
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Valores controlados usados en convenios e instituciones. Expande una
-          sección para ver y gestionar sus valores.
-        </p>
-      </div>
-
+    <div className="mx-auto max-w-4xl space-y-6 py-8">
       <Accordion type="multiple" className="flex flex-col gap-2">
         {/* ── University ref tables ── */}
         <RefAccordionSection<NameRow>
