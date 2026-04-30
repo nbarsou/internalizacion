@@ -113,6 +113,7 @@ model PendingInvite {
 model RefRegion {
   id             Int             @id @default(autoincrement())
   name           String          @unique @db.VarChar(150)
+  color          String?         @db.VarChar(7)
   universities   University[]
   pendingInvites PendingInvite[]
 
@@ -122,6 +123,7 @@ model RefRegion {
 model RefCountry {
   id           Int          @id @default(autoincrement())
   name         String       @unique @db.VarChar(150)
+  color        String?      @db.VarChar(7)
   universities University[]
 
   @@map("ref_pais")
@@ -131,6 +133,7 @@ model RefCountry {
 model RefInstitutionType {
   id           Int          @id @default(autoincrement())
   name         String       @unique @db.VarChar(150)
+  color        String?      @db.VarChar(7)
   universities University[]
 
   @@map("ref_giro")
@@ -139,6 +142,7 @@ model RefInstitutionType {
 model RefCampus {
   id           Int          @id @default(autoincrement())
   name         String       @unique @db.VarChar(150)
+  color        String?      @db.VarChar(7)
   universities University[]
 
   @@map("ref_campus")
@@ -147,6 +151,7 @@ model RefCampus {
 model RefAgreementType {
   id         Int         @id @default(autoincrement())
   name       String      @unique @db.VarChar(150)
+  color      String?     @db.VarChar(7)
   agreements Agreement[]
 
   @@map("ref_agreement_type")
@@ -155,6 +160,7 @@ model RefAgreementType {
 model RefAttr {
   id             Int             @id @default(autoincrement())
   name           String          @unique @db.VarChar(150)
+  color          String?         @db.VarChar(7)
   agreementAttrs AgreementAttr[]
 
   @@map("ref_attr")
@@ -189,6 +195,7 @@ model RefBeneficiary {
   /// Preserved from the original referencias.xlsx CVE column.
   cve        String                 @unique @db.VarChar(10)
   name       String                 @unique @db.VarChar(150)
+  color      String?                @db.VarChar(7)
   agreements AgreementBeneficiary[]
 
   @@map("ref_beneficiary")
