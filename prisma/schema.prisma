@@ -70,19 +70,38 @@ enum Role {
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+  id                  String          @id
+  name                String
+  isSuperuser         Boolean         @default(false)
+  email               String          @unique
+  emailVerified       Boolean         @default(false)
+  image               String?
+  permissionExpiresAt DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  accounts            Account[]
+  sessions            Session[]
+  pendingInvites      PendingInvite[] // ← add this
 
   role Role @default(WAITLISTED)
 
   @@map("user")
+}
+
+model PendingInvite {
+  id        String    @id @default(cuid())
+  email     String    @unique // ← move @@unique to inline
+  role      Role      @default(VIEWER)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  createdBy   String // ← String not Int
+  creator     User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  refRegion   RefRegion? @relation(fields: [refRegionId], references: [id])
+  refRegionId Int?
+
+  @@map("pending_invite")
 }
 
 // ============================================================
@@ -92,9 +111,10 @@ model User {
 // ============================================================
 
 model RefRegion {
-  id           Int          @id @default(autoincrement())
-  name         String       @unique @db.VarChar(150)
-  universities University[]
+  id             Int             @id @default(autoincrement())
+  name           String          @unique @db.VarChar(150)
+  universities   University[]
+  pendingInvites PendingInvite[]
 
   @@map("ref_region")
 }
@@ -195,7 +215,7 @@ model University {
   isCatholic Boolean @default(false)
   // qs_ranking Int? — dropped, no destination in current scope
 
-  pagina_web String? @db.VarChar(500)
+  web_page String? @db.VarChar(500)
 
   // ── Location ──────────────────────────────────────────────
   /// Free-text city (~258 unique values — too many for a ref table).
