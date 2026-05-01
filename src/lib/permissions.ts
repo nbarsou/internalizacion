@@ -2,48 +2,47 @@ import 'server-only';
 import { Role } from '@/generated/prisma/client';
 
 export type Permission =
+  | 'manage:all'
   | 'university:view'
   | 'university:edit'
-  | 'university:delete'
+  | 'university:create'
+  | 'refs:view'
+  | 'refs:create'
+  | 'refs:edit'
+  | 'refs:delete'
   | 'user:view'
-  | 'user:invite'
-  | 'user:remove'
-  | 'user:change_role'
+  | 'user:edit'
   | 'agreement:view'
   | 'agreement:create'
   | 'agreement:edit'
   | 'agreement:delete'
-  | 'manage:all';
+  | 'metrics:view';
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.ADMIN]: [
     'manage:all',
     'university:view',
     'university:edit',
-    'university:delete',
+    'university:create',
     'user:view',
-    'user:invite',
-    'user:remove',
-    'user:change_role',
+    'user:edit',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
     'agreement:delete',
+    'metrics:view',
   ],
   [Role.EDITOR]: [
     'university:view',
     'university:edit',
-    'user:view',
-    'user:invite',
+    'university:create',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
     'agreement:delete',
+    'metrics:view',
   ],
-  [Role.VIEWER]: [
-    'university:view', // ← removed the leading =
-    'agreement:view',
-  ],
+  [Role.VIEWER]: ['university:view', 'agreement:view'],
   [Role.WAITLISTED]: [], // ← was missing entirely
 };
 
@@ -64,15 +63,14 @@ export function buildPermissions(role: Role): Record<Permission, boolean> {
     'manage:all',
     'university:view',
     'university:edit',
-    'university:delete',
+    'university:create',
     'user:view',
-    'user:invite',
-    'user:remove',
-    'user:change_role',
+    'user:edit',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
     'agreement:delete',
+    'metrics:view',
   ];
 
   return Object.fromEntries(

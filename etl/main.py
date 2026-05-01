@@ -22,6 +22,8 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
+import colorsys
+
 from utils.load import get_data, load_json
 from utils.analyze import (
     value_distribution,
@@ -130,6 +132,47 @@ def rich_table(
     if df.height > max_rows:
         t.caption = f"… {df.height - max_rows} more rows not shown"
     console.print(t)
+
+
+def hsl_to_hex(hue: float, saturation: float, lightness: float) -> str:
+    # colorsys expects h, l, s in the range [0.0, 1.0]
+    r, g, b = colorsys.hls_to_rgb(hue / 360.0, lightness / 100.0, saturation / 100.0)
+    return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+
+GOLDEN_ANGLE = 137.508
+
+COLOR_PALETTE = [hsl_to_hex((i * GOLDEN_ANGLE) % 360, 70, 55) for i in range(100)]
+
+# Mapped TS table names to your seed dictionary keys
+TABLE_COLOR_OFFSETS = {
+    "ref_regions": 0,
+    "ref_countries": 15,
+    "ref_institution_types": 30,
+    "ref_campuses": 45,
+    "ref_agreement_types": 60,
+    "ref_attrs": 75,
+    "ref_statuses": 90,
+    "ref_utilizations": 105,
+    "ref_beneficiaries": 120,  # Added for complete coverage based on your Prisma schema
+}
+
+
+def pick_next_color(used: list[str], offset: int = 0) -> str:
+    used_set = {c.lower() for c in used if c}
+    palette_len = len(COLOR_PALETTE)
+
+    # Safely handle negative offsets and ensure it's an integer
+    safe_offset = ((int(offset) % palette_len) + palette_len) % palette_len
+
+    for i in range(palette_len):
+        color_index = (i + safe_offset) % palette_len
+        color = COLOR_PALETTE[color_index]
+        if color.lower() not in used_set:
+            return color
+
+    # Fallback
+    return COLOR_PALETTE[(len(used) + safe_offset) % palette_len]
 
 
 # ── Phase 1: EXTRACT ──────────────────────────────────────────────────────────
@@ -459,8 +502,8 @@ def transform(
         (Col.PAIS, "ref_countries", "country"),
         (Col.GIRO, "ref_institution_types", "institution type"),
     ]:
-        # Seed starts with just N/A at id=0
-        seed[key] = [{"id": 0, "name": "N/A"}]
+        # Seed starts with just N/A at id=0. Color will be assigned in Phase 3f.
+        seed[key] = [{"id": 0, "value": "N/A"}]
         unique_vals = df[col].drop_nulls().unique().to_list()
         created_count = 0
         for val in sorted(unique_vals):
@@ -619,8 +662,8 @@ def transform(
                 "campusId": campus_id,
                 "ciudad": clean_text(row.get(Col.CIUDAD), max_length=150),
                 "direccion": clean_text(row.get(Col.DIRECCION), max_length=500),
-                "pagina_web": clean_text(row.get(Col.PAGINA_WEB), max_length=500),
-                "pagina_web_url": web_pair.web_url,
+                "webPage": clean_text(row.get(Col.PAGINA_WEB), max_length=500),
+                "webPage_url": web_pair.web_url,
             }
         )
 
@@ -706,7 +749,7 @@ def transform(
 
         # Resolve accreditation attr ids for this row
         attr_ids = [
-            resolve_ref(attr_name, seed["ref_attrs"], name_key="name")
+            resolve_ref(attr_name, seed["ref_attrs"], name_key="value")
             for col, attr_name in ATTR_COLS.items()
             if is_truthy(row.get(col))
         ]
@@ -734,7 +777,7 @@ def transform(
             type_name: str, spots: int | None, comments: str | None = None
         ):
             type_id = resolve_ref(
-                type_name, seed["ref_agreement_types"], name_key="name"
+                type_name, seed["ref_agreement_types"], name_key="value"
             )
             if type_id is None:
                 # Dynamic type from OTRO
@@ -765,14 +808,6 @@ def transform(
                     "beneficiaryIds": beneficiary_ids,
                 }
             )
-            # obs.append(
-            #     make_obs(
-            #         "INFO",
-            #         "etl_status_pending",
-            #         "Agreement status set to N/A — requires manual review",
-            #         agreement_id=agr_id,
-            #     )
-            # )
 
         if is_truthy(row.get(Col.STUDY_ABROAD)):
             add_agreement("Study Abroad", None)
@@ -851,6 +886,30 @@ def transform(
         f"Observations built: [bold]{len(obs)}[/] "
         f"([yellow]{new_ref_warnings} new-ref warnings[/])"
     )
+
+    # ── 3f. Reference Colors ──────────────────────────────────────────────────
+    console.print("\n[bold]Backfilling reference table colors[/]")
+
+    colored_tables = 0
+    assigned_colors = 0
+
+    for table_key, offset in TABLE_COLOR_OFFSETS.items():
+        if table_key not in seed:
+            continue
+
+        colored_tables += 1
+
+        # Pull any existing colors (pre-seeded manually or from JSON) to ensure no duplicates
+        used_colors = [item["color"] for item in seed[table_key] if item.get("color")]
+
+        for item in seed[table_key]:
+            if not item.get("color"):
+                new_color = pick_next_color(used_colors, offset)
+                item["color"] = new_color
+                used_colors.append(new_color)
+                assigned_colors += 1
+
+    ok(f"Colors applied: [bold]{assigned_colors}[/] across {colored_tables} tables")
 
 
 # ── Summary ───────────────────────────────────────────────────────────────────
