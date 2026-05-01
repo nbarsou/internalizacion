@@ -1,3 +1,4 @@
+// src/features/refs/components/beneficiary-table.tsx
 'use client';
 
 import { useState } from 'react';
@@ -19,15 +20,13 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 
-import type { RefTableName } from '../schemas';
-import { CreateRefModal } from './create-ref-modal';
-import { EditRefModal } from './edit-ref-modal';
-import { DeleteRefModal } from './delete-ref-modal';
+import { CreateBeneficiaryModal } from './create-beneficiary-modal';
+import { EditBeneficiaryModal } from './edit-beneficiary-modal';
+import { DeleteBeneficiaryModal } from './delete-beneficiary-modal';
 
-// ── Types & State ────────────────────────────────────────────────────────────
-
-export interface ValueRow {
+export interface BeneficiaryRow {
   id: number;
+  cve: string;
   value: string;
   color: string | null;
   _count: Record<string, number>;
@@ -36,30 +35,22 @@ export interface ValueRow {
 type ModalState =
   | { type: 'closed' }
   | { type: 'create' }
-  | { type: 'edit'; item: ValueRow }
-  | { type: 'delete'; item: ValueRow };
+  | { type: 'edit'; item: BeneficiaryRow }
+  | { type: 'delete'; item: BeneficiaryRow };
 
-// ── Props ────────────────────────────────────────────────────────────────────
-
-interface RefAccordionSectionProps {
+interface BeneficiaryAccordionSectionProps {
   value: string;
   title: string;
-  table: RefTableName;
-  rows: ValueRow[];
+  rows: BeneficiaryRow[];
   countKey: string;
-  usedByLabel: string;
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
-
-export function RefAccordionSection({
+export function BeneficiaryAccordionSection({
   value,
   title,
-  table,
   rows,
   countKey,
-}: RefAccordionSectionProps) {
-  // Discriminated union guards our modal states
+}: BeneficiaryAccordionSectionProps) {
   const [modal, setModal] = useState<ModalState>({ type: 'closed' });
   const close = () => setModal({ type: 'closed' });
 
@@ -112,11 +103,7 @@ export function RefAccordionSection({
           </div>
         ) : (
           <>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-muted-foreground text-xs">
-                Haz clic en el color para cambiarlo. Los cambios se aplican de
-                inmediato a todos los registros que usan estos valores.
-              </p>
+            <div className="mb-3 flex items-end justify-end">
               <Button onClick={() => setModal({ type: 'create' })} size="sm">
                 <PlusIcon className="mr-2 h-4 w-4" />
                 Agregar
@@ -128,6 +115,7 @@ export function RefAccordionSection({
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead className="w-10" aria-label="Color" />
+                    <TableHead className="w-24">CVE</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead className="w-20 text-right">Usos</TableHead>
                     <TableHead className="w-24 text-right">Acciones</TableHead>
@@ -148,11 +136,10 @@ export function RefAccordionSection({
                             <div
                               className="h-6 w-6 rounded-full border border-black/10 shadow-sm dark:border-white/10"
                               style={{ backgroundColor: row.color }}
-                              title={row.color} // Shows the hex code when hovering
+                              title={row.color}
                               aria-hidden="true"
                             />
                           ) : (
-                            // Fallback if the color is null or empty
                             <div
                               className="bg-muted/50 h-6 w-6 rounded-full border border-dashed"
                               title="Sin color"
@@ -160,10 +147,12 @@ export function RefAccordionSection({
                             />
                           )}
                         </TableCell>
+                        <TableCell className="font-mono text-sm font-medium">
+                          {row.cve}
+                        </TableCell>
                         <TableCell className="font-medium">
                           {row.value}
                         </TableCell>
-
                         <TableCell className="text-right">
                           <Badge
                             variant={isUnused ? 'outline' : 'secondary'}
@@ -217,24 +206,20 @@ export function RefAccordionSection({
           </>
         )}
 
-        {/* ── Modals are mounted once per section ── */}
-        <CreateRefModal
-          table={table}
+        <CreateBeneficiaryModal
           title={title}
           open={modal.type === 'create'}
           onOpenChange={(open) => !open && close()}
         />
 
-        <EditRefModal
-          table={table}
+        <EditBeneficiaryModal
           title={title}
           item={modal.type === 'edit' ? modal.item : null}
           open={modal.type === 'edit'}
           onOpenChange={(open) => !open && close()}
         />
 
-        <DeleteRefModal
-          table={table}
+        <DeleteBeneficiaryModal
           title={title}
           item={modal.type === 'delete' ? modal.item : null}
           open={modal.type === 'delete'}
