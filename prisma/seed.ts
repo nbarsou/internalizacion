@@ -29,10 +29,6 @@ import * as path from 'path';
 
 // ── Seed JSON types ───────────────────────────────────────────────────────────
 
-interface RefRow {
-  id: number;
-  name: string;
-}
 interface RefValueRow {
   id: number;
   value: string;
@@ -41,7 +37,8 @@ interface RefValueRow {
 interface RefBenefRow {
   id: number;
   cve: string;
-  name: string;
+  value: string;
+  color: string | null;
 }
 
 interface UniversityRow {
@@ -91,12 +88,12 @@ interface ObservationRow {
 }
 
 interface SeedData {
-  ref_regions: RefRow[];
-  ref_countries: RefRow[];
-  ref_institution_types: RefRow[];
-  ref_agreement_types: RefRow[];
-  ref_campuses: RefRow[];
-  ref_attrs: RefRow[];
+  ref_regions: RefValueRow[];
+  ref_countries: RefValueRow[];
+  ref_institution_types: RefValueRow[];
+  ref_agreement_types: RefValueRow[];
+  ref_campuses: RefValueRow[];
+  ref_attrs: RefValueRow[];
   ref_statuses: RefValueRow[];
   ref_utilizations: RefValueRow[];
   ref_beneficiaries: RefBenefRow[];
@@ -271,27 +268,51 @@ async function main() {
   console.log('→ reference tables');
   await prisma.$transaction([
     prisma.refRegion.createMany({
-      data: seed.ref_regions.map((r) => ({ id: r.id, name: r.name })),
+      data: seed.ref_regions.map((r) => ({
+        id: r.id,
+        value: r.value,
+        color: r.color,
+      })),
       skipDuplicates: true,
     }),
     prisma.refCountry.createMany({
-      data: seed.ref_countries.map((r) => ({ id: r.id, name: r.name })),
+      data: seed.ref_countries.map((r) => ({
+        id: r.id,
+        value: r.value,
+        color: r.color,
+      })),
       skipDuplicates: true,
     }),
     prisma.refInstitutionType.createMany({
-      data: seed.ref_institution_types.map((r) => ({ id: r.id, name: r.name })),
+      data: seed.ref_institution_types.map((r) => ({
+        id: r.id,
+        value: r.value,
+        color: r.color,
+      })),
       skipDuplicates: true,
     }),
     prisma.refCampus.createMany({
-      data: seed.ref_campuses.map((r) => ({ id: r.id, name: r.name })),
+      data: seed.ref_campuses.map((r) => ({
+        id: r.id,
+        value: r.value,
+        color: r.color,
+      })),
       skipDuplicates: true,
     }),
     prisma.refAgreementType.createMany({
-      data: seed.ref_agreement_types.map((r) => ({ id: r.id, name: r.name })),
+      data: seed.ref_agreement_types.map((r) => ({
+        id: r.id,
+        value: r.value,
+        color: r.color,
+      })),
       skipDuplicates: true,
     }),
     prisma.refAttr.createMany({
-      data: seed.ref_attrs.map((r) => ({ id: r.id, name: r.name })),
+      data: seed.ref_attrs.map((r) => ({
+        id: r.id,
+        value: r.value,
+        color: r.color,
+      })),
       skipDuplicates: true,
     }),
     prisma.refStatus.createMany({
@@ -314,7 +335,8 @@ async function main() {
       data: seed.ref_beneficiaries.map((r) => ({
         id: r.id,
         cve: r.cve,
-        name: r.name,
+        value: r.value,
+        color: r.color,
       })),
       skipDuplicates: true,
     }),

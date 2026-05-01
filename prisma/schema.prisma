@@ -112,7 +112,7 @@ model PendingInvite {
 
 model RefRegion {
   id             Int             @id @default(autoincrement())
-  name           String          @unique @db.VarChar(150)
+  value          String          @unique @db.VarChar(150)
   color          String?         @db.VarChar(7)
   universities   University[]
   pendingInvites PendingInvite[]
@@ -122,17 +122,17 @@ model RefRegion {
 
 model RefCountry {
   id           Int          @id @default(autoincrement())
-  name         String       @unique @db.VarChar(150)
+  value        String       @unique @db.VarChar(150)
   color        String?      @db.VarChar(7)
   universities University[]
 
   @@map("ref_pais")
 }
 
-/// Giro — institutional category (e.g. Pública, Privada, Gubernamental).
+/// Giro — institutional category (e.g. Pública, Privada).
 model RefInstitutionType {
   id           Int          @id @default(autoincrement())
-  name         String       @unique @db.VarChar(150)
+  value        String       @unique @db.VarChar(150)
   color        String?      @db.VarChar(7)
   universities University[]
 
@@ -141,7 +141,7 @@ model RefInstitutionType {
 
 model RefCampus {
   id           Int          @id @default(autoincrement())
-  name         String       @unique @db.VarChar(150)
+  value        String       @unique @db.VarChar(150)
   color        String?      @db.VarChar(7)
   universities University[]
 
@@ -150,7 +150,7 @@ model RefCampus {
 
 model RefAgreementType {
   id         Int         @id @default(autoincrement())
-  name       String      @unique @db.VarChar(150)
+  value      String      @unique @db.VarChar(150)
   color      String?     @db.VarChar(7)
   agreements Agreement[]
 
@@ -159,7 +159,7 @@ model RefAgreementType {
 
 model RefAttr {
   id             Int             @id @default(autoincrement())
-  name           String          @unique @db.VarChar(150)
+  value          String          @unique @db.VarChar(150)
   color          String?         @db.VarChar(7)
   agreementAttrs AgreementAttr[]
 
@@ -194,7 +194,7 @@ model RefBeneficiary {
   /// Short alphanumeric code (e.g. CC, EG, ZZ, CD).
   /// Preserved from the original referencias.xlsx CVE column.
   cve        String                 @unique @db.VarChar(10)
-  name       String                 @unique @db.VarChar(150)
+  value      String                 @unique @db.VarChar(150)
   color      String?                @db.VarChar(7)
   agreements AgreementBeneficiary[]
 
