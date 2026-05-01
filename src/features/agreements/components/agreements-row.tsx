@@ -35,10 +35,10 @@ export function AgreementRow({ agreement }: AgreementRowProps) {
   const { id, type, status, spots, beneficiaries, attrs } = agreement;
 
   const schoolNames = beneficiaries
-    .map((b) => b.beneficiary.name)
+    .map((b) => b.beneficiary.value)
     .filter(Boolean);
 
-  const attrNames = attrs.map((a) => a.attr.name);
+  const attrNames = attrs.map((a) => a.attr.value);
 
   return (
     <TableRow>
@@ -48,7 +48,7 @@ export function AgreementRow({ agreement }: AgreementRowProps) {
       </TableCell>
 
       {/* Agreement type */}
-      <TableCell className="font-medium">{type?.name ?? '—'}</TableCell>
+      <TableCell className="font-medium">{type?.value ?? '—'}</TableCell>
 
       {/* Beneficiary schools */}
       <TableCell className="hidden md:table-cell">

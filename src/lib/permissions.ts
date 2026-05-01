@@ -1,48 +1,48 @@
+import 'server-only';
 import { Role } from '@/generated/prisma/client';
 
 export type Permission =
+  | 'manage:all'
   | 'university:view'
   | 'university:edit'
-  | 'university:delete'
-  | 'member:view'
-  | 'member:invite'
-  | 'member:remove'
-  | 'member:change_role'
+  | 'university:create'
+  | 'refs:view'
+  | 'refs:create'
+  | 'refs:edit'
+  | 'refs:delete'
+  | 'user:view'
+  | 'user:edit'
   | 'agreement:view'
   | 'agreement:create'
   | 'agreement:edit'
   | 'agreement:delete'
-  | 'manage:all';
+  | 'metrics:view';
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.ADMIN]: [
     'manage:all',
     'university:view',
     'university:edit',
-    'university:delete',
-    'member:view',
-    'member:invite',
-    'member:remove',
-    'member:change_role',
+    'university:create',
+    'user:view',
+    'user:edit',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
     'agreement:delete',
+    'metrics:view',
   ],
   [Role.EDITOR]: [
     'university:view',
     'university:edit',
-    'member:view',
-    'member:invite',
+    'university:create',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
     'agreement:delete',
+    'metrics:view',
   ],
-  [Role.VIEWER]: [
-    'university:view', // ← removed the leading =
-    'agreement:view',
-  ],
+  [Role.VIEWER]: ['university:view', 'agreement:view'],
   [Role.WAITLISTED]: [], // ← was missing entirely
 };
 
@@ -63,15 +63,14 @@ export function buildPermissions(role: Role): Record<Permission, boolean> {
     'manage:all',
     'university:view',
     'university:edit',
-    'university:delete',
-    'member:view',
-    'member:invite',
-    'member:remove',
-    'member:change_role',
+    'university:create',
+    'user:view',
+    'user:edit',
     'agreement:view',
     'agreement:create',
     'agreement:edit',
     'agreement:delete',
+    'metrics:view',
   ];
 
   return Object.fromEntries(
@@ -80,3 +79,29 @@ export function buildPermissions(role: Role): Record<Permission, boolean> {
 }
 
 export { Role };
+
+/**
+ * Solo ADMIN puede modificar roles. Un ADMIN no puede modificar a otro ADMIN
+ * (ni a un superusuario). El superusuario puede modificar a cualquiera
+ * excepto a otros superusuarios.
+ */
+export function canModifyUser(
+  acting: { role: Role; isSuperuser: boolean },
+  target: { role: Role; isSuperuser: boolean }
+): boolean {
+  if (target.isSuperuser) return false;
+  if (acting.isSuperuser) return true;
+  if (acting.role !== Role.ADMIN) return false;
+  return target.role !== Role.ADMIN;
+}
+
+/**
+ * Solo el superusuario puede asignar ADMIN.
+ */
+export function canAssignRole(
+  acting: { isSuperuser: boolean },
+  newRole: Role
+): boolean {
+  if (acting.isSuperuser) return true;
+  return newRole !== Role.ADMIN;
+}

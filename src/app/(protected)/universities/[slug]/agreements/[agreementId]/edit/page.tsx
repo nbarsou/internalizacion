@@ -32,7 +32,7 @@ export default async function EditAgreementPage({ params }: Props) {
           <CardTitle>Editar convenio</CardTitle>
           <CardDescription>
             Convenio de tipo{' '}
-            <span className="font-medium">{agreement.type?.name}</span> con{' '}
+            <span className="font-medium">{agreement.type?.value}</span> con{' '}
             <span className="font-medium">{university.name}</span>.
           </CardDescription>
         </CardHeader>

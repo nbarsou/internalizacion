@@ -1,99 +1,312 @@
+// src/features/refs/actions.ts
 'use server';
+import 'server-only';
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { refStrategies } from './ref-strategies';
-import type { RefTableName } from './ref-strategies';
+import {
+  dbGetUsedColors,
+  withRefErrors,
+  RefDuplicateError,
+  RefInUseError,
+  RefNotFoundError,
+  dbCreateBeneficiary,
+  dbDeleteBeneficiary,
+  dbGetBeneficiaryUsedColors,
+  dbUpdateBeneficiary,
+} from './db';
+import { pickNextColor } from '@/lib/color-palette';
+import { FormState } from '@/lib/form-utils';
+import { checkPermission } from '@/lib/authz';
+import {
+  BeneficiaryFields,
+  beneficiaryInputSchema,
+  refInputSchema,
+  TABLE_COLOR_OFFSETS,
+  type RefFields,
+  type RefTableName,
+} from './schemas';
 
-// ── Shared result type ────────────────────────────────────────────────────────
+export type RefActionState = FormState<RefFields>;
 
-export type ActionResult =
-  | { success: true }
-  | { success: false; error: string };
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function getStr(formData: FormData, key: string): string {
+  const v = formData.get(key);
+  return typeof v === 'string' ? v : '';
+}
+
+/**
+ * If the user submitted '', server picks from the palette.
+ * Otherwise the schema-validated hex is used.
+ */
+async function resolveColor(
+  table: RefTableName,
+  rawColor: string
+): Promise<string> {
+  if (rawColor) return rawColor;
+
+  const used = await dbGetUsedColors(table);
+
+  // Look up the offset based on the table name, defaulting to 0 just in case
+  const offset = TABLE_COLOR_OFFSETS[table] ?? 0;
+
+  // Pass the offset to the function we updated earlier
+  return pickNextColor(used, offset);
+}
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export async function actionCreateRef(
   table: RefTableName,
-  rawData: unknown
-): Promise<ActionResult> {
-  const strategy = refStrategies[table];
-  const parsed = strategy.createSchema.safeParse(rawData);
+  _prev: RefActionState,
+  formData: FormData
+): Promise<RefActionState> {
+  const authz = await checkPermission('refs:create');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
 
+  const parsed = refInputSchema.safeParse({
+    value: getStr(formData, 'value'),
+    color: getStr(formData, 'color'),
+  });
   if (!parsed.success) {
-    const message = parsed.error.issues.map((i) => i.message).join(', ');
-    return { success: false, error: message };
+    return {
+      type: 'validation',
+      errors: z.flattenError(parsed.error).fieldErrors,
+    };
   }
 
+  const color = await resolveColor(table, parsed.data.color);
+  const strategy = refStrategies[table];
+
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (strategy.create as (d: any) => Promise<unknown>)(parsed.data);
+    await withRefErrors(() =>
+      strategy.create({ value: parsed.data.value, color })
+    );
     revalidatePath('/settings');
-    return { success: true };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Error desconocido';
-    // Unique constraint → friendly message
-    if (msg.includes('Unique constraint')) {
+    return { type: 'success', message: 'Valor creado exitosamente.' };
+  } catch (e) {
+    if (e instanceof RefDuplicateError)
       return {
-        success: false,
-        error: `Ya existe un valor con ese ${strategy.label.toLowerCase()}.`,
+        type: 'error',
+        message: `Ya existe un ${strategy.label.toLowerCase()} con ese nombre.`,
+      };
+    return { type: 'error', message: 'Error al crear el valor.' };
+  }
+}
+
+// ── Update ───────────────────────────────────────────────────────────────────
+
+export async function actionUpdateRef(
+  id: number,
+  table: RefTableName,
+  _prev: RefActionState,
+  formData: FormData
+): Promise<RefActionState> {
+  const authz = await checkPermission('refs:edit');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+
+  const parsed = refInputSchema.safeParse({
+    value: getStr(formData, 'value'),
+    color: getStr(formData, 'color'),
+  });
+  if (!parsed.success) {
+    return {
+      type: 'validation',
+      errors: z.flattenError(parsed.error).fieldErrors,
+    };
+  }
+
+  const color = await resolveColor(table, parsed.data.color);
+  const strategy = refStrategies[table];
+
+  try {
+    await withRefErrors(() =>
+      strategy.update(id, { value: parsed.data.value, color })
+    );
+    revalidatePath('/settings');
+    return { type: 'success', message: 'Valor actualizado.' };
+  } catch (e) {
+    if (e instanceof RefDuplicateError)
+      return { type: 'error', message: 'Ya existe un valor con ese nombre.' };
+    if (e instanceof RefNotFoundError)
+      return { type: 'error', message: 'El valor ya no existe.' };
+    return { type: 'error', message: 'Error al actualizar el valor.' };
+  }
+}
+
+// ── Delete ───────────────────────────────────────────────────────────────────
+
+export async function actionDeleteRef(
+  id: number,
+  table: RefTableName
+): Promise<FormState> {
+  const authz = await checkPermission('refs:delete');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+
+  const strategy = refStrategies[table];
+
+  try {
+    await withRefErrors(() => strategy.delete(id));
+    revalidatePath('/settings');
+    return { type: 'success', message: 'Valor eliminado.' };
+  } catch (e) {
+    if (e instanceof RefInUseError)
+      return {
+        type: 'error',
+        message:
+          'No se puede eliminar: existen registros que dependen de este valor.',
+      };
+    if (e instanceof RefNotFoundError)
+      return { type: 'error', message: 'El valor ya no existe.' };
+    return { type: 'error', message: 'Error al eliminar el valor.' };
+  }
+}
+
+export type BeneficiaryActionState = FormState<BeneficiaryFields>;
+
+async function resolveBeneficiaryColor(rawColor: string): Promise<string> {
+  if (rawColor) return rawColor;
+  const used = await dbGetBeneficiaryUsedColors();
+  return pickNextColor(used);
+}
+
+// ── Create ────────────────────────────────────────────────────────────────────
+
+export async function actionCreateBeneficiary(
+  _prev: BeneficiaryActionState,
+  formData: FormData
+): Promise<BeneficiaryActionState> {
+  const authz = await checkPermission('refs:create');
+  if (!authz.authorized) {
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+  }
+
+  const raw = {
+    cve: formData.get('cve'),
+    value: formData.get('value'),
+    color: formData.get('color'),
+  };
+
+  const parsed = beneficiaryInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { type: 'validation', errors: parsed.error.flatten().fieldErrors };
+  }
+
+  const color = await resolveBeneficiaryColor(parsed.data.color);
+
+  try {
+    await withRefErrors(() =>
+      dbCreateBeneficiary({
+        cve: parsed.data.cve,
+        value: parsed.data.value,
+        color,
+      })
+    );
+    revalidatePath('/settings');
+    return { type: 'success', message: 'Escuela beneficiaria agregada.' };
+  } catch (e) {
+    if (e instanceof RefDuplicateError) {
+      return {
+        type: 'error',
+        message: 'Ya existe una escuela con ese nombre o CVE.',
       };
     }
-    return { success: false, error: msg };
+    return { type: 'error', message: 'Error al agregar la escuela.' };
   }
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
 
-export async function actionUpdateRef(
-  table: RefTableName,
+export async function actionUpdateBeneficiary(
   id: number,
-  rawData: unknown
-): Promise<ActionResult> {
-  const strategy = refStrategies[table];
-  const parsed = strategy.createSchema.safeParse(rawData);
-
-  if (!parsed.success) {
-    const message = parsed.error.issues.map((i) => i.message).join(', ');
-    return { success: false, error: message };
+  _prev: BeneficiaryActionState,
+  formData: FormData
+): Promise<BeneficiaryActionState> {
+  const authz = await checkPermission('refs:edit');
+  if (!authz.authorized) {
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
   }
 
+  const raw = {
+    cve: formData.get('cve'),
+    value: formData.get('value'),
+    color: formData.get('color'),
+  };
+
+  const parsed = beneficiaryInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { type: 'validation', errors: parsed.error.flatten().fieldErrors };
+  }
+
+  const color = await resolveBeneficiaryColor(parsed.data.color);
+
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (strategy.update as (id: number, d: any) => Promise<unknown>)(
-      id,
-      parsed.data
+    await withRefErrors(() =>
+      dbUpdateBeneficiary(id, {
+        cve: parsed.data.cve,
+        value: parsed.data.value,
+        color,
+      })
     );
     revalidatePath('/settings');
-    return { success: true };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Error desconocido';
-    if (msg.includes('Unique constraint')) {
-      return { success: false, error: `Ya existe un valor con ese nombre.` };
-    }
-    return { success: false, error: msg };
+    return { type: 'success', message: 'Escuela beneficiaria actualizada.' };
+  } catch (e) {
+    if (e instanceof RefDuplicateError)
+      return {
+        type: 'error',
+        message: 'Ya existe una escuela con ese nombre o CVE.',
+      };
+    if (e instanceof RefNotFoundError)
+      return { type: 'error', message: 'La escuela ya no existe.' };
+    return { type: 'error', message: 'Error al actualizar la escuela.' };
   }
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
-export async function actionDeleteRef(
-  table: RefTableName,
-  id: number
-): Promise<ActionResult> {
-  const strategy = refStrategies[table];
+export async function actionDeleteBeneficiary(id: number): Promise<FormState> {
+  const authz = await checkPermission('refs:delete');
+  if (!authz.authorized) {
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+  }
 
   try {
-    await strategy.delete(id);
+    await withRefErrors(() => dbDeleteBeneficiary(id));
     revalidatePath('/settings');
-    return { success: true };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Error desconocido';
-    if (msg.includes('Foreign key constraint')) {
+    return { type: 'success', message: 'Escuela beneficiaria eliminada.' };
+  } catch (e) {
+    if (e instanceof RefInUseError) {
       return {
-        success: false,
-        error: `No se puede eliminar: existen registros que dependen de este valor.`,
+        type: 'error',
+        message:
+          'No se puede eliminar: existen convenios que dependen de esta escuela.',
       };
     }
-    return { success: false, error: msg };
+    if (e instanceof RefNotFoundError)
+      return { type: 'error', message: 'La escuela ya no existe.' };
+    return { type: 'error', message: 'Error al eliminar la escuela.' };
   }
 }

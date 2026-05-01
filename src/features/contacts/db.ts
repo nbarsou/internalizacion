@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-import { notDeleted } from '@/lib/db-filters';
 import type {
   ContactConcernType,
   ContactValueType,
@@ -15,7 +14,7 @@ export class ContactNotFoundError extends Error {}
 
 export async function dbGetContactsByUniversity(universityId: string) {
   return prisma.contact.findMany({
-    where: { universityId, ...notDeleted },
+    where: { universityId },
     orderBy: [{ concernType: 'asc' }, { valueType: 'asc' }],
   });
 }
@@ -49,7 +48,7 @@ export async function dbUpdateContact(
   // We use updateMany scoped to universityId to prevent IDOR vulnerabilities.
   // Even though it targets a unique ID, updateMany allows us to filter by both.
   const result = await prisma.contact.updateMany({
-    where: { id, universityId, ...notDeleted },
+    where: { id, universityId },
     data,
   });
 
@@ -64,7 +63,7 @@ export async function dbUpdateContact(
 export async function dbSoftDeleteContact(id: string, universityId: string) {
   // Scope to universityId to prevent IDOR
   const result = await prisma.contact.updateMany({
-    where: { id, universityId, ...notDeleted },
+    where: { id, universityId },
     data: { deletedAt: new Date() },
   });
 

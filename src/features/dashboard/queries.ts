@@ -2,7 +2,6 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-import { notDeleted } from '@/lib/db-filters';
 
 // ── Agreements by Campus ──────────────────────────────────────────────────────
 
@@ -14,11 +13,10 @@ export interface AgreementData {
 export async function getAgreementStats(): Promise<AgreementData[]> {
   const campuses = await prisma.refCampus.findMany({
     select: {
-      name: true,
+      value: true,
       universities: {
-        where: notDeleted,
         select: {
-          _count: { select: { agreements: { where: notDeleted } } },
+          _count: { select: { agreements: true } },
         },
       },
     },
@@ -26,7 +24,7 @@ export async function getAgreementStats(): Promise<AgreementData[]> {
 
   return campuses
     .map((c) => ({
-      campus: c.name,
+      campus: c.value,
       agreements: c.universities.reduce(
         (sum, u) => sum + u._count.agreements,
         0
@@ -46,7 +44,6 @@ export interface GrowthData {
 
 export async function getGrowthStats(): Promise<GrowthData[]> {
   const agreements = await prisma.agreement.findMany({
-    where: notDeleted,
     select: { createdAt: true },
     orderBy: { createdAt: 'asc' },
   });
@@ -82,11 +79,10 @@ export interface CountryData {
 export async function getCountryStats(): Promise<CountryData[]> {
   const countries = await prisma.refCountry.findMany({
     select: {
-      name: true,
+      value: true,
       universities: {
-        where: notDeleted,
         select: {
-          _count: { select: { agreements: { where: notDeleted } } },
+          _count: { select: { agreements: true } },
         },
       },
     },
@@ -94,7 +90,7 @@ export async function getCountryStats(): Promise<CountryData[]> {
 
   return countries
     .map((c) => ({
-      country: c.name,
+      country: c.value,
       agreements: c.universities.reduce(
         (sum, u) => sum + u._count.agreements,
         0
@@ -127,28 +123,22 @@ export async function getExpiringAgreements(): Promise<ExpiryData[]> {
   const [one, three, six] = await Promise.all([
     prisma.agreement.count({
       where: {
-        ...notDeleted,
         // Check the expiration date on the parent University
         university: {
-          ...notDeleted,
           expires: { gte: now, lte: sixMonths },
         },
       },
     }),
     prisma.agreement.count({
       where: {
-        ...notDeleted,
         university: {
-          ...notDeleted,
           expires: { gt: sixMonths, lte: eightMonths },
         },
       },
     }),
     prisma.agreement.count({
       where: {
-        ...notDeleted,
         university: {
-          ...notDeleted,
           expires: { gt: eightMonths, lte: year },
         },
       },
@@ -172,14 +162,14 @@ export interface AgreementTypeData {
 export async function getAgreementTypeStats(): Promise<AgreementTypeData[]> {
   const types = await prisma.refAgreementType.findMany({
     select: {
-      name: true,
-      _count: { select: { agreements: { where: notDeleted } } },
+      value: true,
+      _count: { select: { agreements: true } },
     },
   });
 
   return types
     .map((t) => ({
-      type: t.name,
+      type: t.value,
       count: t._count.agreements,
     }))
     .filter((t) => t.count > 0)
@@ -196,14 +186,14 @@ export interface FacultyData {
 export async function getFacultyStats(): Promise<FacultyData[]> {
   const beneficiaries = await prisma.refBeneficiary.findMany({
     select: {
-      name: true,
+      value: true,
       _count: { select: { agreements: true } },
     },
   });
 
   return beneficiaries
     .map((b) => ({
-      faculty: b.name,
+      faculty: b.value,
       count: b._count.agreements,
     }))
     .filter((b) => b.count > 0)
@@ -226,7 +216,6 @@ export interface University {
 export async function getUniversities(): Promise<University[]> {
   const unis = await prisma.university.findMany({
     where: {
-      ...notDeleted,
       lat: { not: null },
       lng: { not: null },
     },
@@ -236,15 +225,15 @@ export async function getUniversities(): Promise<University[]> {
       city: true,
       lat: true,
       lng: true,
-      country: { select: { name: true } },
-      _count: { select: { agreements: { where: notDeleted } } },
+      country: true,
+      _count: { select: { agreements: true } },
     },
   });
 
   return unis.map((u) => ({
     id: u.id,
     name: u.name,
-    country: u.country?.name || 'Unknown',
+    country: u.country.value,
     city: u.city || 'Unknown',
     coordinates: { lat: u.lat!, lng: u.lng! },
     agreements: u._count.agreements,

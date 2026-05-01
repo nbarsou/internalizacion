@@ -261,22 +261,21 @@ def resolve_beneficiary_token(token: str, ref_list: list[dict]) -> int | None:
     if bid is not None:
         return bid
 
-    return resolve_ref(token, ref_list, name_key="name")
+    return resolve_ref(token, ref_list, name_key="value")
 
 
 # ── Reference table resolution ────────────────────────────────────────────────
-
-
-def resolve_ref(value: Any, ref_list: list[dict], name_key: str = "name") -> int | None:
+def resolve_ref(
+    value: Any, ref_list: list[dict], name_key: str = "value"
+) -> int | None:
     """
     Exact-match lookup (after normalisation) against a ref table list.
     Returns the matching row's 'id', or None if no match.
 
     Args:
         value:     Raw cell value to look up.
-        ref_list:  List of dicts, each with an 'id' and a name field.
-        name_key:  The field to match against (default 'name', use 'value'
-                   for RefStatus / RefUtilization).
+        ref_list:  List of dicts, each with an 'id' and a value field.
+        name_key:  The field to match against (default 'value').
 
     Example:
         resolve_ref("México", seed["ref_countries"])  → 42
@@ -293,7 +292,7 @@ def resolve_ref(value: Any, ref_list: list[dict], name_key: str = "name") -> int
 def resolve_or_create(
     value: Any,
     ref_list: list[dict],
-    name_key: str = "name",
+    name_key: str = "value",
 ) -> tuple[int, bool]:
     """
     Resolve a value against a ref table, inserting a new row if absent.

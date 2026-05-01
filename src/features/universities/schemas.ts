@@ -1,19 +1,25 @@
-import { z } from 'zod/v4';
+import { z } from 'zod';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const refId = z.number().int().min(0);
 
-const refId = (label: string) =>
-  z
-    .number({ error: `Selecciona un valor para ${label}` })
-    .int()
-    .min(0);
+export const UNIVERSITY_FIELDS = {
+  name: { required: true, label: 'Nombre' },
+  start: { required: true, label: 'Inicio de la relación' },
+  expires: { required: false, label: 'Expiración' },
+  isCatholic: { required: true, label: 'Catolica' },
+  webPage: { required: false, label: 'Pagina Web' },
+  city: { required: false, label: 'Ciudad' },
+  address: { required: false, label: 'Dirección' },
+  regionId: { required: true, label: 'Región' },
+  countryId: { required: true, label: 'País' },
+  institutionTypeId: { required: true, label: 'Tipo de Institución' },
+  campusId: { required: true, label: 'Campus' },
+  utilizationId: { required: true, label: 'Utilización' },
+};
 
-// ── Schema ────────────────────────────────────────────────────────────────────
-// Rule: every field must resolve to a concrete type (no `| undefined`) so that
-// react-hook-form's generic resolves cleanly against CreateUniversityInput.
-// Use .default('') instead of .optional() for optional string fields.
+export type UniversityFields = keyof typeof UNIVERSITY_FIELDS;
 
-export const createUniversitySchema = z
+export const univeristySchema = z
   .object({
     name: z
       .string()
@@ -22,40 +28,20 @@ export const createUniversitySchema = z
       .trim(),
 
     // Empty string is valid (no website); if non-empty must be a valid URL
-    pagina_web: z
-      .string()
-      .trim()
-      .max(500)
-      .refine(
-        (v) => v === '' || /^https?:\/\/.+/.test(v),
-        'Debe ser una URL válida (incluye https://)'
-      )
-      .default(''),
+    start: z.date('La fecha de inicio es obligatoria'),
+    expires: z.date().optional(),
+    isCatholic: z.boolean(),
 
-    start: z
-      .string()
-      .min(1, 'La fecha de inicio es obligatoria')
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
+    webPage: z.url().optional(),
 
-    // Empty string means indefinido — validated only when non-empty
-    expires: z
-      .string()
-      .refine(
-        (v) => v === '' || /^\d{4}-\d{2}-\d{2}$/.test(v),
-        'Formato de fecha inválido'
-      )
-      .default(''),
+    regionId: refId,
+    city: z.string().trim().max(150).optional(),
+    countryId: refId,
+    address: z.string().trim().max(500).optional(),
 
-    isCatholic: z.boolean().default(false),
-
-    city: z.string().trim().max(150).default(''),
-    address: z.string().trim().max(500).default(''),
-
-    regionId: refId('región'),
-    countryId: refId('país'),
-    institutionTypeId: refId('tipo de institución'),
-    campusId: refId('campus'),
-    utilizationId: refId('utilización'),
+    institutionTypeId: refId,
+    campusId: refId,
+    utilizationId: refId,
   })
   .superRefine((data, ctx) => {
     if (data.expires && data.start && data.expires < data.start) {
@@ -67,4 +53,14 @@ export const createUniversitySchema = z
     }
   });
 
-export type CreateUniversityInput = z.infer<typeof createUniversitySchema>;
+export type UniversityInput = z.infer<typeof univeristySchema>;
+
+export type UniversityUpdatePayload = Omit<
+  UniversityInput,
+  'expires' | 'webPage' | 'city' | 'address'
+> & {
+  expires: Date | null; // null = clear
+  webPage: string | null; // null = clear
+  city: string | null; // null = clear
+  address: string | null; // null = clear
+};

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Filter, Plus, Pencil } from 'lucide-react';
+import { Download, Filter, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -106,7 +106,7 @@ export function AgreementsTable({
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-8" />
-                  <TableHead className="w-[90px]">ID</TableHead>
+                  <TableHead className="w-22.5">ID</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="hidden md:table-cell">
                     Escuelas beneficiarias

@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { UniversityDisplay } from './university-display';
 import { UniversityEditForm } from './university-edit-form';
-import { DeleteUniversityDialog } from './university-delete-form';
-import type { UniversityDetail } from '@/features/universities/db';
+import type { UniversityDTO } from '@/features/universities/db';
 import type { AllRefs } from '@/features/refs/db';
 
 interface UniversityHeaderCardProps {
-  university: UniversityDetail;
+  university: UniversityDTO;
   refs: AllRefs;
 }
 
@@ -44,7 +43,6 @@ export function UniversityHeaderCard({
               <Pencil className="h-3.5 w-3.5" />
               Editar
             </Button>
-            <DeleteUniversityDialog id={university.id} name={university.name} />
           </div>
         )}
       </CardHeader>

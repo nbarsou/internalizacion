@@ -2,7 +2,6 @@
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { parseRole } from '@/lib/role';
 import { Role } from '@/generated/prisma/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { WaitlistSignOut } from '@/features/auth/components/waitlist-sign-out';
@@ -15,7 +14,7 @@ export default async function WaitlistPage() {
 
   // Has a real role — send them to the app
   // (don't use verifySession here — it would create a redirect loop)
-  if (parseRole(session.user.role) !== Role.WAITLISTED) redirect('/dashboard');
+  if (session.user.role !== Role.WAITLISTED) redirect('/dashboard');
 
   const user = session.user;
 

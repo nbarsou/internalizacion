@@ -1,249 +1,167 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import slugify from 'slugify';
-import { prisma } from '@/lib/prisma';
-import { CreateUniversityInput, createUniversitySchema } from './schemas';
+import { univeristySchema, UniversityFields } from './schemas';
 import { redirect } from 'next/navigation';
-
-// ── Result type ───────────────────────────────────────────────────────────────
-
-export type CreateUniversityResult =
-  | { success: true; slug: string }
-  | {
-      success: false;
-      fieldErrors: Partial<Record<string, string>>;
-      formError?: string;
-    };
-
-// ── Slug generation ───────────────────────────────────────────────────────────
-
-async function generateSlug(name: string): Promise<string> {
-  const base = slugify(name, { lower: true, strict: true });
-  const existing = await prisma.university.findMany({
-    where: { slug: { startsWith: base } },
-    select: { slug: true },
-  });
-  if (existing.length === 0) return base;
-  const suffixes = existing.map((u) => {
-    const m = u.slug.match(/-(\d+)$/);
-    return m ? parseInt(m[1]) : 0;
-  });
-  return `${base}-${Math.max(...suffixes) + 1}`;
-}
-
-// ── FK validation ─────────────────────────────────────────────────────────────
-// Returns a map of fieldName → error message for any ref ID that doesn't exist.
-
-async function validateRefs(data: {
-  regionId: number;
-  countryId: number;
-  institutionTypeId: number;
-  campusId: number;
-  utilizationId: number;
-}): Promise<Partial<Record<string, string>>> {
-  const [region, country, institutionType, campus, utilization] =
-    await Promise.all([
-      prisma.refRegion.findUnique({
-        where: { id: data.regionId },
-        select: { id: true },
-      }),
-      prisma.refCountry.findUnique({
-        where: { id: data.countryId },
-        select: { id: true },
-      }),
-      prisma.refInstitutionType.findUnique({
-        where: { id: data.institutionTypeId },
-        select: { id: true },
-      }),
-      prisma.refCampus.findUnique({
-        where: { id: data.campusId },
-        select: { id: true },
-      }),
-      prisma.refUtilization.findUnique({
-        where: { id: data.utilizationId },
-        select: { id: true },
-      }),
-    ]);
-
-  const errors: Partial<Record<string, string>> = {};
-  if (!region) errors.regionId = 'La región seleccionada ya no existe';
-  if (!country) errors.countryId = 'El país seleccionado ya no existe';
-  if (!institutionType)
-    errors.institutionTypeId = 'El tipo de institución ya no existe';
-  if (!campus) errors.campusId = 'El campus seleccionado ya no existe';
-  if (!utilization)
-    errors.utilizationId = 'El nivel de utilización ya no existe';
-  return errors;
-}
-
+import { FormState } from '@/lib/form-utils';
+import { checkPermission } from '@/lib/authz';
+import z from 'zod';
+import { dbCreateUniversity, dbUpdateUniversity, validateRefs } from './db';
+import { slugSchema } from '@/lib/schemas';
 // ── Action ────────────────────────────────────────────────────────────────────
 
-export async function actionCreateUniversity(
-  rawData: unknown
-): Promise<CreateUniversityResult> {
+export type UniversityActionState = FormState<UniversityFields>;
+
+export async function createUniversityAction(
+  prevState: UniversityActionState,
+  formData: FormData
+): Promise<UniversityActionState> {
+  const authz = await checkPermission('university:create');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+
+  const get = (key: UniversityFields) => formData.get(key);
+
+  const startStr = get('start');
+  const expiresStr = get('expires');
+  const webPageRaw = get('webPage');
+  const cityRaw = get('city');
+  const addressRaw = get('address');
+
+  const rawData = {
+    name: get('name'),
+    start:
+      typeof startStr === 'string' && startStr ? new Date(startStr) : undefined,
+    expires:
+      typeof expiresStr === 'string' && expiresStr
+        ? new Date(expiresStr)
+        : undefined, //optiional
+    isCatholic: get('isCatholic') === 'true',
+    webPage:
+      typeof webPageRaw === 'string' && webPageRaw.trim()
+        ? webPageRaw
+        : undefined, //Optional
+    city: typeof cityRaw === 'string' && cityRaw.trim() ? cityRaw : undefined, //Optional
+    address:
+      typeof addressRaw === 'string' && addressRaw.trim()
+        ? addressRaw
+        : undefined, //Optional
+    regionId: get('regionId'),
+    countryId: get('countryId'),
+    institutionTypeId: get('institutionTypeId'),
+    campusId: get('campusId'),
+    utilizationId: get('utilizationId'),
+  };
+
   // 1. Zod validation
-  const parsed = createUniversitySchema.safeParse(rawData);
-  if (!parsed.success) {
-    const fieldErrors: Partial<Record<string, string>> = {};
-    for (const issue of parsed.error.issues) {
-      const key = (issue.path[0] as string) ?? '_form';
-      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
-    }
-    return { success: false, fieldErrors };
-  }
+  const validatedFields = univeristySchema.safeParse(rawData);
+  if (!validatedFields.success)
+    return {
+      type: 'validation',
+      errors: z.flattenError(validatedFields.error).fieldErrors,
+    };
 
-  const data = parsed.data;
-
-  // 2. FK reference validation
-  const refErrors = await validateRefs(data);
-  if (Object.keys(refErrors).length > 0) {
-    return { success: false, fieldErrors: refErrors };
-  }
-
-  // 3. Create
+  let university: Awaited<ReturnType<typeof dbCreateUniversity>>;
   try {
-    const slug = await generateSlug(data.name);
+    // 2. FK reference validation
+    await validateRefs(validatedFields.data);
 
-    const university = await prisma.university.create({
-      data: {
-        slug,
-        name: data.name,
-        start: new Date(data.start),
-        expires: data.expires ? new Date(data.expires) : null,
-        isCatholic: data.isCatholic,
-        pagina_web: data.pagina_web || null,
-        city: data.city || null,
-        address: data.address || null,
-        regionId: data.regionId,
-        countryId: data.countryId,
-        institutionTypeId: data.institutionTypeId,
-        campusId: data.campusId,
-        utilizationId: data.utilizationId,
-      },
-      select: { slug: true },
+    // 3. Create
+    university = await dbCreateUniversity(validatedFields.data);
+
+    revalidatePath('/universities');
+  } catch (error) {
+    console.error('[createTournamentAction]:', error);
+    return {
+      type: 'error',
+      message:
+        'Algo salió mal al crear el torneo. Por favor, inténtalo de nuevo.',
+    };
+  }
+
+  redirect(`/t/${university.slug}`);
+}
+
+export async function updateUniversityAction(
+  slug: string,
+  prevState: UniversityActionState,
+  formData: FormData
+): Promise<UniversityActionState> {
+  const slugParsed = slugSchema.safeParse(slug);
+  if (!slugParsed.success) return { type: 'error', message: 'Algo salio mal!' };
+
+  const authz = await checkPermission('university:edit');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+
+  const get = (key: UniversityFields) => formData.get(key);
+
+  const startStr = get('expires');
+  const expiresStr = get('expires');
+  const webPageRaw = get('webPage');
+  const cityRaw = get('city');
+  const addressRaw = get('address');
+
+  const rawData = {
+    name: get('name'),
+    start:
+      typeof startStr === 'string' && startStr ? new Date(startStr) : undefined,
+    expires:
+      typeof expiresStr === 'string' && expiresStr
+        ? new Date(expiresStr)
+        : undefined, //optiional
+    isCatholic: get('isCatholic'),
+    webPage:
+      typeof webPageRaw === 'string' && webPageRaw.trim()
+        ? webPageRaw
+        : undefined, //Optional
+    city: typeof cityRaw === 'string' && cityRaw.trim() ? cityRaw : undefined, //Optional
+    address:
+      typeof addressRaw === 'string' && addressRaw.trim()
+        ? addressRaw
+        : undefined, //Optional
+    regionId: get('regionId'),
+    countryId: get('countryId'),
+    institutionTypeId: get('institutionTypeId'),
+    campusId: get('campusId'),
+    utilizationId: get('utilizationId'),
+  };
+
+  // 1. Zod validation
+  const validatedFields = univeristySchema.safeParse(rawData);
+  if (!validatedFields.success)
+    return {
+      type: 'validation',
+      errors: z.flattenError(validatedFields.error).fieldErrors,
+    };
+
+  try {
+    // 2. FK reference validation
+    await validateRefs(validatedFields.data);
+
+    // 3. Create
+    await dbUpdateUniversity(slug, {
+      ...validatedFields.data,
+      expires: validatedFields.data.expires ?? null,
+      webPage: validatedFields.data.webPage ?? null,
+      city: validatedFields.data.city ?? null,
+      address: validatedFields.data.address ?? null,
     });
 
     revalidatePath('/universities');
-    return { success: true, slug: university.slug };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : '';
-    if (msg.includes('Unique constraint')) {
-      return {
-        success: false,
-        fieldErrors: {
-          name: 'Ya existe una institución con un nombre muy similar',
-        },
-      };
-    }
+    return { type: 'success', message: 'Los cambios quedaron guardados.' };
+  } catch (error) {
+    console.error('[createTournamentAction]:', error);
     return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al guardar. Intenta de nuevo.',
+      type: 'error',
+      message:
+        'Algo salió mal al crear el torneo. Por favor, inténtalo de nuevo.',
     };
   }
-}
-
-// ── Result type ───────────────────────────────────────────────────────────────
-
-export type UpdateUniversityResult =
-  | { success: true; slug: string }
-  | {
-      success: false;
-      fieldErrors: Partial<Record<string, string>>;
-      formError?: string;
-    };
-
-// ── Update ────────────────────────────────────────────────────────────────────
-
-export async function actionUpdateUniversity(
-  id: string,
-  rawData: unknown
-): Promise<UpdateUniversityResult> {
-  // 1. Zod validation
-  const parsed = createUniversitySchema.safeParse(rawData);
-  if (!parsed.success) {
-    const fieldErrors: Partial<Record<string, string>> = {};
-    for (const issue of parsed.error.issues) {
-      const key = (issue.path[0] as string | undefined) ?? 'root';
-      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
-    }
-    return { success: false, fieldErrors };
-  }
-
-  const data = parsed.data as CreateUniversityInput;
-
-  // 2. FK validation
-  const refErrors = await validateRefs(data);
-  if (Object.keys(refErrors).length > 0) {
-    return { success: false, fieldErrors: refErrors };
-  }
-
-  // 3. Regenerate slug only if name changed
-  try {
-    const existing = await prisma.university.findUniqueOrThrow({
-      where: { id },
-      select: { name: true, slug: true },
-    });
-
-    let slug = existing.slug;
-    if (existing.name !== data.name) {
-      const base = slugify(data.name, { lower: true, strict: true });
-      const others = await prisma.university.findMany({
-        where: { slug: { startsWith: base }, NOT: { id } },
-        select: { slug: true },
-      });
-      if (others.length === 0) {
-        slug = base;
-      } else {
-        const max = Math.max(
-          ...others.map((u) => {
-            const m = u.slug.match(/-(\d+)$/);
-            return m ? parseInt(m[1]) : 0;
-          })
-        );
-        slug = `${base}-${max + 1}`;
-      }
-    }
-
-    await prisma.university.update({
-      where: { id },
-      data: {
-        slug,
-        name: data.name,
-        start: new Date(data.start),
-        expires: data.expires ? new Date(data.expires) : null,
-        isCatholic: data.isCatholic,
-        pagina_web: data.pagina_web || null,
-        city: data.city || null,
-        address: data.address || null,
-        regionId: data.regionId,
-        countryId: data.countryId,
-        institutionTypeId: data.institutionTypeId,
-        campusId: data.campusId,
-        utilizationId: data.utilizationId,
-      },
-    });
-
-    revalidatePath('/universities');
-    revalidatePath(`/universities/${slug}`);
-    return { success: true, slug };
-  } catch {
-    return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al guardar. Intenta de nuevo.',
-    };
-  }
-}
-
-// ── Delete (soft) ─────────────────────────────────────────────────────────────
-
-export async function actionDeleteUniversity(id: string): Promise<void> {
-  await prisma.university.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
-  revalidatePath('/universities');
-  redirect('/universities');
 }
