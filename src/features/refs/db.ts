@@ -1,9 +1,34 @@
 import 'server-only';
+import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
+import { RefTableName } from './schemas';
+
+// ── Error classes ────────────────────────────────────────────────────────────
+
+export class RefDuplicateError extends Error {}
+export class RefInUseError extends Error {}
+export class RefNotFoundError extends Error {}
+
+/**
+ * Wraps a Prisma call and converts known error codes into typed errors.
+ * P2002 → unique constraint   → RefDuplicateError
+ * P2003/P2014 → FK violation  → RefInUseError
+ * P2025 → record not found    → RefNotFoundError
+ */
+export async function withRefErrors<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      if (e.code === 'P2002') throw new RefDuplicateError();
+      if (e.code === 'P2003' || e.code === 'P2014') throw new RefInUseError();
+      if (e.code === 'P2025') throw new RefNotFoundError();
+    }
+    throw e;
+  }
+}
 
 // ── Fetchers with usage counts ────────────────────────────────────────────────
-// Each row includes a `_count` so the UI can show how many records reference
-// this value and block deletion when count > 0.
 
 export async function dbGetRegions() {
   return prisma.refRegion.findMany({
@@ -105,58 +130,7 @@ export async function dbGetAllRefs() {
 
 export type AllRefs = Awaited<ReturnType<typeof dbGetAllRefs>>;
 
-// ── Write functions ───────────────────────────────────────────────────────────
-
-export type RefTableName =
-  | 'refRegion'
-  | 'refCountry'
-  | 'refInstitutionType'
-  | 'refCampus'
-  | 'refAgreementType'
-  | 'refAttr'
-  | 'refStatus'
-  | 'refUtilization'
-  | 'refBeneficiary';
-
-// Generic update — works for name-based tables (regions, countries, etc.)
-export async function dbUpdateRefName(
-  table: RefTableName,
-  id: number,
-  name: string
-) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (prisma[table] as any).update({ where: { id }, data: { name } });
-}
-
-// Status and Utilization use `value` not `name`
-export async function dbUpdateRefValue(
-  table: 'refStatus' | 'refUtilization',
-  id: number,
-  value: string
-) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (prisma[table] as any).update({ where: { id }, data: { value } });
-}
-
-export async function dbDeleteRef(table: RefTableName, id: number) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (prisma[table] as any).delete({ where: { id } });
-}
-
-export async function dbCreateRef(
-  table: RefTableName,
-  data: { name?: string; value?: string; cve?: string; color?: string }
-) {
-  // Destructure to ensure id is never passed — ref tables use DB autoincrement
-  const { name, value, cve, color } = data;
-  const insertData = Object.fromEntries(
-    Object.entries({ name, value, cve, color }).filter(
-      ([, v]) => v !== undefined
-    )
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (prisma[table] as any).create({ data: insertData });
-}
+// ── Used colors (any ref table) ──────────────────────────────────────────────
 
 export async function dbGetUsedColors(
   table: RefTableName
@@ -166,4 +140,37 @@ export async function dbGetUsedColors(
     select: { color: true },
   });
   return rows.map((r: { color: string | null }) => r.color);
+}
+
+export async function dbCreateBeneficiary(data: {
+  cve: string;
+  value: string;
+  color: string | null;
+}) {
+  return prisma.refBeneficiary.create({ data });
+}
+
+export async function dbUpdateBeneficiary(
+  id: number,
+  data: { cve?: string; value?: string; color?: string | null }
+) {
+  return prisma.refBeneficiary.update({
+    where: { id },
+    data,
+  });
+}
+
+export async function dbDeleteBeneficiary(id: number) {
+  return prisma.refBeneficiary.delete({
+    where: { id },
+  });
+}
+
+// Fetches in-use colors specifically for the beneficiary palette resolver
+export async function dbGetBeneficiaryUsedColors(): Promise<(string | null)[]> {
+  const records = await prisma.refBeneficiary.findMany({
+    where: { color: { not: null } },
+    select: { color: true },
+  });
+  return records.map((r) => r.color);
 }

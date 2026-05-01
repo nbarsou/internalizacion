@@ -1,10 +1,6 @@
-import { z } from 'zod/v4';
+import { z } from 'zod';
 
-const refId = (label: string) =>
-  z
-    .number({ error: `Selecciona un valor para ${label}` })
-    .int()
-    .min(0);
+const refId = z.number().int().min(0);
 
 export const UNIVERSITY_FIELDS = {
   name: { required: true, label: 'Nombre' },
@@ -15,7 +11,7 @@ export const UNIVERSITY_FIELDS = {
   city: { required: false, label: 'Ciudad' },
   address: { required: false, label: 'Dirección' },
   regionId: { required: true, label: 'Región' },
-  countryIf: { required: true, label: 'País' },
+  countryId: { required: true, label: 'País' },
   institutionTypeId: { required: true, label: 'Tipo de Institución' },
   campusId: { required: true, label: 'Campus' },
   utilizationId: { required: true, label: 'Utilización' },
@@ -23,7 +19,7 @@ export const UNIVERSITY_FIELDS = {
 
 export type UniversityFields = keyof typeof UNIVERSITY_FIELDS;
 
-export const createUniversitySchema = z
+export const univeristySchema = z
   .object({
     name: z
       .string()
@@ -34,18 +30,18 @@ export const createUniversitySchema = z
     // Empty string is valid (no website); if non-empty must be a valid URL
     start: z.date('La fecha de inicio es obligatoria'),
     expires: z.date().optional(),
+    isCatholic: z.boolean(),
 
-    isCatholic: z.boolean().default(false),
-    web_page: z.url().optional(),
+    webPage: z.url().optional(),
 
+    regionId: refId,
     city: z.string().trim().max(150).optional(),
+    countryId: refId,
     address: z.string().trim().max(500).optional(),
 
-    regionId: refId('región'),
-    countryId: refId('país'),
-    institutionTypeId: refId('tipo de institución'),
-    campusId: refId('campus'),
-    utilizationId: refId('utilización'),
+    institutionTypeId: refId,
+    campusId: refId,
+    utilizationId: refId,
   })
   .superRefine((data, ctx) => {
     if (data.expires && data.start && data.expires < data.start) {
@@ -57,4 +53,14 @@ export const createUniversitySchema = z
     }
   });
 
-export type CreateUniversityInput = z.infer<typeof createUniversitySchema>;
+export type UniversityInput = z.infer<typeof univeristySchema>;
+
+export type UniversityUpdatePayload = Omit<
+  UniversityInput,
+  'expires' | 'webPage' | 'city' | 'address'
+> & {
+  expires: Date | null; // null = clear
+  webPage: string | null; // null = clear
+  city: string | null; // null = clear
+  address: string | null; // null = clear
+};

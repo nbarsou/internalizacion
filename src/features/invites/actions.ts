@@ -15,7 +15,7 @@ export async function createInviteAction(
   prevState: InviteActionState,
   formData: FormData
 ): Promise<InviteActionState> {
-  const authz = await checkPermission('user:invite');
+  const authz = await checkPermission('user:edit');
   if (!authz.authorized)
     return {
       type: 'error',
@@ -66,7 +66,7 @@ const deleteInviteArgsSchema = z.object({
 });
 
 export async function deleteInviteAction(inviteId: string): Promise<FormState> {
-  const authz = await checkPermission('user:invite');
+  const authz = await checkPermission('user:edit');
   if (!authz.authorized)
     return {
       type: 'error',

@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-import { notDeleted } from '@/lib/db-filters';
 import type { Prisma } from '@/generated/prisma/client';
 
 // ── Custom error classes ──────────────────────────────────────────────────────
@@ -37,7 +36,6 @@ export type AgreementItem = Prisma.AgreementGetPayload<{
 // All agreements across all universities — for the global /agreements page.
 export async function dbGetAgreements() {
   return prisma.agreement.findMany({
-    where: notDeleted,
     include: agreementInclude,
     orderBy: { createdAt: 'desc' },
   });
@@ -46,7 +44,7 @@ export async function dbGetAgreements() {
 // Agreements scoped to one university — for the university detail page.
 export async function dbGetAgreementsByUniversity(universityId: string) {
   return prisma.agreement.findMany({
-    where: { universityId, ...notDeleted },
+    where: { universityId },
     include: agreementInclude,
     orderBy: { createdAt: 'desc' },
   });
@@ -54,7 +52,7 @@ export async function dbGetAgreementsByUniversity(universityId: string) {
 
 export async function dbGetAgreementById(id: string) {
   return prisma.agreement.findFirst({
-    where: { id, ...notDeleted },
+    where: { id },
     include: agreementInclude,
   });
 }
