@@ -1,15 +1,16 @@
 import { Accordion } from '@/components/ui/accordion';
 import { dbGetAllRefs } from '@/features/refs/db';
 import { RefAccordionSection } from '@/features/refs/components/ref-table';
-import type {
-  NameRow,
-  ValueRow,
-  BenefRow,
-} from '@/features/refs/components/ref-table';
+import type { ValueRow } from '@/features/refs/components/ref-table';
+
+// ── Import the new custom component and type ──
+import { BeneficiaryAccordionSection } from '@/features/refs/components/beneficiary-table';
+import type { BeneficiaryRow } from '@/features/refs/components/beneficiary-table';
+
 import { requirePermission } from '@/lib/authz';
 
 export default async function RefsPage() {
-  const { can } = await requirePermission('user:view');
+  await requirePermission('user:view');
 
   const refs = await dbGetAllRefs();
 
@@ -17,138 +18,85 @@ export default async function RefsPage() {
     <div className="mx-auto max-w-4xl space-y-6 py-8">
       <Accordion type="multiple" className="flex flex-col gap-2">
         {/* ── University ref tables ── */}
-        <RefAccordionSection<NameRow>
+        <RefAccordionSection
           value="regions"
           title="Regiones"
           table="refRegion"
-          rows={refs.regions as NameRow[]}
+          rows={refs.regions as ValueRow[]}
           countKey="universities"
           usedByLabel="universidades"
-          createFields={{ type: 'name' }}
-          renderLabel={(r) => r.name}
         />
 
-        <RefAccordionSection<NameRow>
+        <RefAccordionSection
           value="countries"
           title="Países"
           table="refCountry"
-          rows={refs.countries as NameRow[]}
+          rows={refs.countries as ValueRow[]}
           countKey="universities"
           usedByLabel="universidades"
-          createFields={{ type: 'name' }}
-          renderLabel={(r) => r.name}
         />
 
-        <RefAccordionSection<NameRow>
+        <RefAccordionSection
           value="institution-types"
           title="Tipos de institución"
           table="refInstitutionType"
-          rows={refs.institutionTypes as NameRow[]}
+          rows={refs.institutionTypes as ValueRow[]}
           countKey="universities"
           usedByLabel="universidades"
-          createFields={{ type: 'name' }}
-          renderLabel={(r) => r.name}
         />
 
-        <RefAccordionSection<NameRow>
+        <RefAccordionSection
           value="campuses"
           title="Campus Anáhuac"
           table="refCampus"
-          rows={refs.campuses as NameRow[]}
+          rows={refs.campuses as ValueRow[]}
           countKey="universities"
           usedByLabel="universidades"
-          createFields={{ type: 'name' }}
-          renderLabel={(r) => r.name}
         />
 
-        <RefAccordionSection<ValueRow>
+        <RefAccordionSection
           value="utilizations"
           title="Utilización"
           table="refUtilization"
           rows={refs.utilizations as ValueRow[]}
           countKey="universities"
           usedByLabel="universidades"
-          editField="value"
-          createFields={{ type: 'value', hasColor: true }}
-          renderLabel={(r) => r.value}
-          extraHeader="Color"
-          renderExtra={(r) =>
-            r.color ? (
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-block h-3 w-3 rounded-full border"
-                  style={{ backgroundColor: r.color }}
-                />
-                <span className="font-mono text-xs">{r.color}</span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground text-xs">—</span>
-            )
-          }
         />
 
         {/* ── Agreement ref tables ── */}
-        <RefAccordionSection<NameRow>
+        <RefAccordionSection
           value="agreement-types"
           title="Tipos de convenio"
           table="refAgreementType"
-          rows={refs.agreementTypes as NameRow[]}
+          rows={refs.agreementTypes as ValueRow[]}
           countKey="agreements"
           usedByLabel="convenios"
-          createFields={{ type: 'name' }}
-          renderLabel={(r) => r.name}
         />
 
-        <RefAccordionSection<ValueRow>
+        <RefAccordionSection
           value="statuses"
           title="Estados de convenio"
           table="refStatus"
           rows={refs.statuses as ValueRow[]}
           countKey="agreements"
           usedByLabel="convenios"
-          editField="value"
-          createFields={{ type: 'value', hasColor: true }}
-          renderLabel={(r) => r.value}
-          extraHeader="Color"
-          renderExtra={(r) =>
-            r.color ? (
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-block h-3 w-3 rounded-full border"
-                  style={{ backgroundColor: r.color }}
-                />
-                <span className="font-mono text-xs">{r.color}</span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground text-xs">—</span>
-            )
-          }
         />
 
-        <RefAccordionSection<NameRow>
+        <RefAccordionSection
           value="attrs"
           title="Acreditaciones"
           table="refAttr"
-          rows={refs.attrs as NameRow[]}
+          rows={refs.attrs as ValueRow[]}
           countKey="agreementAttrs"
           usedByLabel="convenios"
-          createFields={{ type: 'name' }}
-          renderLabel={(r) => r.name}
         />
 
-        <RefAccordionSection<BenefRow>
+        {/* ── Custom Beneficiary Table ── */}
+        <BeneficiaryAccordionSection
           value="beneficiaries"
           title="Escuelas beneficiarias"
-          table="refBeneficiary"
-          rows={refs.beneficiaries as BenefRow[]}
+          rows={refs.beneficiaries as BeneficiaryRow[]}
           countKey="agreements"
-          usedByLabel="convenios"
-          createFields={{ type: 'beneficiary' }}
-          renderLabel={(r) => r.name}
-          extraHeader="CVE"
-          renderExtra={(r) => (
-            <span className="font-mono text-sm font-medium">{r.cve}</span>
-          )}
         />
       </Accordion>
     </div>

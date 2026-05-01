@@ -12,13 +12,13 @@ export default async function AdminPage() {
 
   const [users, pendingInvites] = await Promise.all([
     dbGetUsers(),
-    can['user:invite'] ? dbGetPendingInvites() : Promise.resolve([]),
+    dbGetPendingInvites(),
   ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-8">
       {/* ── Invite section (gated) ─────────────────────────────── */}
-      {can['user:invite'] && (
+      {can['user:view'] && (
         <section aria-labelledby="invite-heading" className="space-y-3">
           <InviteManagement
             pendingInvites={pendingInvites}

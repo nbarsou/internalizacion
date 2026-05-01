@@ -26,7 +26,7 @@ export function UserRow({
   // No puedes modificar a un superuser.
   // Si no eres superuser, no puedes modificar a otro ADMIN.
   const canModify =
-    can['user:change_role'] &&
+    can['user:edit'] &&
     !isSelf &&
     !user.isSuperuser &&
     (actingIsSuperuser || user.role !== 'ADMIN');
