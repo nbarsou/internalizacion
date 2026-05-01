@@ -270,7 +270,7 @@ export function AgreementForm(props: AgreementFormProps) {
                         .filter((r) => r.id !== 0)
                         .map((r) => (
                           <SelectItem key={r.id} value={r.id.toString()}>
-                            {r.name}
+                            {r.value}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -359,7 +359,7 @@ export function AgreementForm(props: AgreementFormProps) {
                 showSearch={false}
                 options={refs.attrs
                   .filter((r) => r.id !== 0)
-                  .map((r) => ({ id: r.id, name: r.name }))}
+                  .map((r) => ({ id: r.id, name: r.value }))}
                 selected={field.value}
                 onChange={field.onChange}
               />
@@ -380,7 +380,7 @@ export function AgreementForm(props: AgreementFormProps) {
                   .filter((r) => r.id !== 0)
                   .map((r) => ({
                     id: r.id,
-                    name: `${r.cve} — ${r.name}`,
+                    name: `${r.cve} — ${r.value}`,
                   }))}
                 selected={field.value}
                 onChange={field.onChange}

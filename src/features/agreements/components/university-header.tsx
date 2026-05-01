@@ -1,9 +1,9 @@
 import { ExternalLink, GraduationCap, MapPin, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { UniversityDetail } from '@/features/universities/db';
+import type { UniversityDTO } from '@/features/universities/db';
 
 interface UniversityHeaderProps {
-  university: UniversityDetail;
+  university: UniversityDTO;
 }
 
 export function UniversityHeader({ university }: UniversityHeaderProps) {
@@ -14,21 +14,21 @@ export function UniversityHeader({ university }: UniversityHeaderProps) {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
         <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
-          {(city ?? country?.name) && (
+          {(city ?? country?.value) && (
             <span className="flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" />
-              {[city, country?.name].filter(Boolean).join(', ')}
+              {[city, country?.value].filter(Boolean).join(', ')}
             </span>
           )}
-          {institutionType?.name && (
+          {institutionType?.value && (
             <span className="flex items-center gap-1">
               <GraduationCap className="h-3.5 w-3.5" />
-              {institutionType.name}
+              {institutionType.value}
             </span>
           )}
-          {campus?.name && (
+          {campus?.value && (
             <span className="text-muted-foreground text-xs">
-              Campus {campus.name}
+              Campus {campus.value}
             </span>
           )}
           {web_page && (

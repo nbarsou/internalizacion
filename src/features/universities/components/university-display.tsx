@@ -9,10 +9,10 @@ import {
   Cross,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { UniversityDetail } from '@/features/universities/db';
+import type { UniversityDTO } from '@/features/universities/db';
 
 interface UniversityDisplayProps {
-  university: UniversityDetail;
+  university: UniversityDTO;
 }
 
 function DetailRow({
@@ -76,16 +76,16 @@ export function UniversityDisplay({ university }: UniversityDisplayProps) {
 
       {/* Detail grid */}
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-        {country?.name && (
+        {country?.value && (
           <DetailRow
             icon={<MapPin className="h-4 w-4" />}
             label="País"
             value={
               <span>
-                {[city, country.name].filter(Boolean).join(', ')}
-                {region?.name && (
+                {[city, country.value].filter(Boolean).join(', ')}
+                {region?.value && (
                   <span className="text-muted-foreground ml-1.5 text-xs font-normal">
-                    ({region.name})
+                    ({region.value})
                   </span>
                 )}
               </span>
@@ -101,7 +101,7 @@ export function UniversityDisplay({ university }: UniversityDisplayProps) {
           />
         )}
 
-        {institutionType?.name && (
+        {institutionType?.value && (
           <DetailRow
             icon={<GraduationCap className="h-4 w-4" />}
             label="Tipo de institución"
@@ -110,17 +110,17 @@ export function UniversityDisplay({ university }: UniversityDisplayProps) {
                 variant="outline"
                 className="border-orange-200 bg-orange-50 font-normal text-orange-700"
               >
-                {institutionType.name}
+                {institutionType.value}
               </Badge>
             }
           />
         )}
 
-        {campus?.name && campus.id !== 0 && (
+        {campus?.value && campus.id !== 0 && (
           <DetailRow
             icon={<Building2 className="h-4 w-4" />}
             label="Campus Anáhuac titular"
-            value={campus.name}
+            value={campus.value}
           />
         )}
 

@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/command';
 import { Check as CheckIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { UniversityListItem } from '@/features/universities/db';
+import type { UniversityDTO } from '@/features/universities/db';
 
 // ── Column label map ──────────────────────────────────────────────────────────
 // Used by the column manager panel to show human-readable names.
@@ -68,7 +68,7 @@ function SortableHeader({
   column,
   label,
 }: {
-  column: Column<UniversityListItem, unknown>;
+  column: Column<UniversityDTO, unknown>;
   label: string;
 }) {
   const sorted = column.getIsSorted();
@@ -90,11 +90,7 @@ function SortableHeader({
 }
 
 // Standalone sort icon button — used alongside FilterableHeader
-function SortButton({
-  column,
-}: {
-  column: Column<UniversityListItem, unknown>;
-}) {
+function SortButton({ column }: { column: Column<UniversityDTO, unknown> }) {
   const sorted = column.getIsSorted();
   return (
     <Button
@@ -118,7 +114,7 @@ function FilterableHeader({
   label,
   options,
 }: {
-  column: Column<UniversityListItem, unknown>;
+  column: Column<UniversityDTO, unknown>;
   label: string;
   options: string[] | { label: string; value: string }[];
 }) {
@@ -147,7 +143,7 @@ function FilterableHeader({
             <span className="sr-only">Filtrar {label}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0" align="start">
+        <PopoverContent className="w-50 p-0" align="start">
           <Command>
             <CommandInput placeholder={`Buscar ${label.toLowerCase()}…`} />
             <CommandList>
@@ -214,7 +210,7 @@ function SearchableHeader({
   column,
   label,
 }: {
-  column: Column<UniversityListItem, unknown>;
+  column: Column<UniversityDTO, unknown>;
   label: string;
 }) {
   const value = (column.getFilterValue() as string) ?? '';
@@ -237,7 +233,7 @@ function SearchableHeader({
             <span className="sr-only">Buscar {label}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-2" align="start">
+        <PopoverContent className="w-50 p-2" align="start">
           <input
             className="border-input bg-background placeholder:text-muted-foreground w-full rounded-md border px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-orange-500"
             placeholder={`Buscar ${label.toLowerCase()}…`}
@@ -277,7 +273,7 @@ export function buildColumns(opts: {
   institutionTypes: string[];
   startYears: string[];
   expiresYears: string[];
-}): ColumnDef<UniversityListItem>[] {
+}): ColumnDef<UniversityDTO>[] {
   return [
     // Name — truncated, links to detail page
     {
@@ -287,7 +283,7 @@ export function buildColumns(opts: {
       cell: ({ row }) => {
         const { slug, name, web_page } = row.original;
         return (
-          <div className="flex max-w-[220px] min-w-0 flex-col gap-0.5">
+          <div className="flex max-w-55 min-w-0 flex-col gap-0.5">
             <Link
               href={`/universities/${slug}`}
               className="text-primary truncate text-sm font-semibold hover:underline"
@@ -313,7 +309,7 @@ export function buildColumns(opts: {
     // Country — filterable header
     {
       id: 'country',
-      accessorFn: (row) => row.country?.name ?? '',
+      accessorFn: (row) => row.country?.value ?? '',
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -322,16 +318,16 @@ export function buildColumns(opts: {
         />
       ),
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.country?.name ?? '—'}</span>
+        <span className="text-sm">{row.original.country?.value ?? '—'}</span>
       ),
       filterFn: (row, _id, value: string[]) =>
-        value.includes(row.original.country?.name ?? ''),
+        value.includes(row.original.country?.value ?? ''),
     },
 
     // Region — filterable header
     {
       id: 'region',
-      accessorFn: (row) => row.region?.name ?? '',
+      accessorFn: (row) => row.region?.value ?? '',
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -341,17 +337,17 @@ export function buildColumns(opts: {
       ),
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs">
-          {row.original.region?.name ?? '—'}
+          {row.original.region?.value ?? '—'}
         </span>
       ),
       filterFn: (row, _id, value: string[]) =>
-        value.includes(row.original.region?.name ?? ''),
+        value.includes(row.original.region?.value ?? ''),
     },
 
     // Campus — filterable header
     {
       id: 'campus',
-      accessorFn: (row) => row.campus?.name ?? '',
+      accessorFn: (row) => row.campus?.value ?? '',
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -360,10 +356,10 @@ export function buildColumns(opts: {
         />
       ),
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.campus?.name ?? '—'}</span>
+        <span className="text-sm">{row.original.campus?.value ?? '—'}</span>
       ),
       filterFn: (row, _id, value: string[]) =>
-        value.includes(row.original.campus?.name ?? ''),
+        value.includes(row.original.campus?.value ?? ''),
     },
 
     // City — text search in header
@@ -387,7 +383,7 @@ export function buildColumns(opts: {
       // accessorFn returns all type names for this university as a joined string
       // so global search can find them, but filtering uses the custom filterFn
       accessorFn: (row) =>
-        row.agreements.map((a) => a.type?.name ?? '').join(' '),
+        row.agreements.map((a) => a.type?.value ?? '').join(' '),
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -399,7 +395,7 @@ export function buildColumns(opts: {
         const types = Array.from(
           new Set(
             row.original.agreements
-              .map((a) => a.type?.name)
+              .map((a) => a.type?.value)
               .filter((n): n is string => !!n)
           )
         );
@@ -426,12 +422,12 @@ export function buildColumns(opts: {
       },
       filterFn: (row, _id, value: string[]) =>
         value.some((v) =>
-          row.original.agreements.some((a) => a.type?.name === v)
+          row.original.agreements.some((a) => a.type?.value === v)
         ),
     },
     {
       id: 'institutionType',
-      accessorFn: (row) => row.institutionType?.name ?? '',
+      accessorFn: (row) => row.institutionType?.value ?? '',
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -440,7 +436,7 @@ export function buildColumns(opts: {
         />
       ),
       cell: ({ row }) => {
-        const t = row.original.institutionType?.name;
+        const t = row.original.institutionType?.value;
         return t ? (
           <Badge
             variant="outline"
@@ -452,7 +448,7 @@ export function buildColumns(opts: {
         ) : null;
       },
       filterFn: (row, _id, value: string[]) =>
-        value.includes(row.original.institutionType?.name ?? ''),
+        value.includes(row.original.institutionType?.value ?? ''),
     },
 
     // Utilization — filterable header + coloured badge

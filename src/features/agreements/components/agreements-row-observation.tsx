@@ -64,8 +64,8 @@ export function AgreementRowWithObservations({
   const [expanded, setExpanded] = useState(false);
 
   const { id, type, status, spots, beneficiaries, attrs } = agreement;
-  const schoolNames = beneficiaries.map((b) => b.beneficiary.name);
-  const attrNames = attrs.map((a) => a.attr.name);
+  const schoolNames = beneficiaries.map((b) => b.beneficiary.value);
+  const attrNames = attrs.map((a) => a.attr.value);
   const hasObs = observations.length > 0;
 
   return (
@@ -93,7 +93,7 @@ export function AgreementRowWithObservations({
         {/* Type + observation indicator */}
         <TableCell className="font-medium">
           <span className="flex items-center">
-            {type?.name ?? '—'}
+            {type?.value ?? '—'}
             <ObservationIndicator observations={observations} />
           </span>
         </TableCell>
@@ -163,7 +163,7 @@ export function AgreementRowWithObservations({
             <DeleteAgreementPopover
               id={id}
               universityId={universityId}
-              typeName={type?.name ?? 'convenio'}
+              typeName={type?.value ?? 'convenio'}
               onDone={onDeleted}
             />
           </div>

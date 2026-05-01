@@ -84,7 +84,7 @@ function FilterableHeader({
             <span className="sr-only">Filtrar {label}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[220px] p-0" align="start">
+        <PopoverContent className="w-55 p-0" align="start">
           <Command>
             <CommandInput placeholder={`Buscar ${label.toLowerCase()}…`} />
             <CommandList>
@@ -210,9 +210,9 @@ export function buildAgreementColumns(opts: {
       cell: ({ row }) => {
         const u = row.original.university;
         if (!u) return <span className="text-muted-foreground text-xs">—</span>;
-        const meta = [u.country?.name, u.city].filter(Boolean).join(', ');
+        const meta = [u.country?.value, u.city].filter(Boolean).join(', ');
         return (
-          <div className="flex max-w-[240px] flex-col gap-0.5">
+          <div className="flex max-w-60 flex-col gap-0.5">
             <Link
               href={`/universities/${u.slug}`}
               className="text-primary truncate text-sm font-semibold hover:underline"
@@ -233,22 +233,22 @@ export function buildAgreementColumns(opts: {
     // Agreement type — filterable, truncated
     {
       id: 'type',
-      accessorFn: (row) => row.type?.name ?? '',
+      accessorFn: (row) => row.type?.value ?? '',
       header: ({ column }) => (
         <FilterableHeader column={column} label="Tipo" options={opts.types} />
       ),
       cell: ({ row }) => {
-        const name = row.original.type?.name;
+        const name = row.original.type?.value;
         if (!name)
           return <span className="text-muted-foreground text-xs">—</span>;
         return (
-          <span className="block max-w-[140px] truncate text-sm" title={name}>
+          <span className="block max-w-35 truncate text-sm" title={name}>
             {truncate(name, 22)}
           </span>
         );
       },
       filterFn: (row, _id, value: string[]) =>
-        value.includes(row.original.type?.name ?? ''),
+        value.includes(row.original.type?.value ?? ''),
     },
 
     // Status — filterable
@@ -287,7 +287,7 @@ export function buildAgreementColumns(opts: {
     {
       id: 'beneficiaries',
       accessorFn: (row) =>
-        row.beneficiaries.map((b) => b.beneficiary.name).join(' '),
+        row.beneficiaries.map((b) => b.beneficiary.value).join(' '),
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -296,16 +296,18 @@ export function buildAgreementColumns(opts: {
         />
       ),
       cell: ({ row }) => {
-        const names = row.original.beneficiaries.map((b) => b.beneficiary.name);
+        const names = row.original.beneficiaries.map(
+          (b) => b.beneficiary.value
+        );
         if (names.length === 0)
           return <span className="text-muted-foreground text-xs">—</span>;
         return (
-          <div className="flex max-w-[180px] flex-wrap gap-1">
+          <div className="flex max-w-45 flex-wrap gap-1">
             {names.slice(0, 2).map((n) => (
               <Badge
                 key={n}
                 variant="outline"
-                className="h-5 max-w-[80px] truncate px-1 py-0 text-[10px]"
+                className="h-5 max-w-20 truncate px-1 py-0 text-[10px]"
                 title={n}
               >
                 {truncate(n, 10)}
@@ -321,14 +323,14 @@ export function buildAgreementColumns(opts: {
       },
       filterFn: (row, _id, value: string[]) =>
         value.some((v) =>
-          row.original.beneficiaries.some((b) => b.beneficiary.name === v)
+          row.original.beneficiaries.some((b) => b.beneficiary.value === v)
         ),
     },
 
     // Accreditations — filterable
     {
       id: 'attrs',
-      accessorFn: (row) => row.attrs.map((a) => a.attr.name).join(' '),
+      accessorFn: (row) => row.attrs.map((a) => a.attr.value).join(' '),
       header: ({ column }) => (
         <FilterableHeader
           column={column}
@@ -337,7 +339,7 @@ export function buildAgreementColumns(opts: {
         />
       ),
       cell: ({ row }) => {
-        const names = row.original.attrs.map((a) => a.attr.name);
+        const names = row.original.attrs.map((a) => a.attr.value);
         if (names.length === 0)
           return <span className="text-muted-foreground text-xs">—</span>;
         return (
@@ -355,7 +357,7 @@ export function buildAgreementColumns(opts: {
         );
       },
       filterFn: (row, _id, value: string[]) =>
-        value.some((v) => row.original.attrs.some((a) => a.attr.name === v)),
+        value.some((v) => row.original.attrs.some((a) => a.attr.value === v)),
     },
 
     // Link to document

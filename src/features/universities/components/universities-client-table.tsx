@@ -68,7 +68,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { buildColumns, COLUMN_LABELS } from './columns';
-import type { UniversityListItem } from '@/features/universities/db';
+import type { UniversityDTO } from '@/features/universities/db';
 import Link from 'next/link';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ function DraggableHeader({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface UniversitiesClientTableProps {
-  data: UniversityListItem[];
+  data: UniversityDTO[];
 }
 
 export function UniversitiesClientTable({
@@ -159,14 +159,14 @@ export function UniversitiesClientTable({
 
   const filterOpts = React.useMemo(
     () => ({
-      countries: unique(data.map((d) => d.country?.name)),
-      campuses: unique(data.map((d) => d.campus?.name)),
+      countries: unique(data.map((d) => d.country?.value)),
+      campuses: unique(data.map((d) => d.campus?.value)),
       utilizations: unique(data.map((d) => d.utilization?.value)),
-      regions: unique(data.map((d) => d.region?.name)),
+      regions: unique(data.map((d) => d.region?.value)),
       agreementTypes: unique(
-        data.flatMap((d) => d.agreements.map((a) => a.type?.name))
+        data.flatMap((d) => d.agreements.map((a) => a.type?.value))
       ),
-      institutionTypes: unique(data.map((d) => d.institutionType?.name)),
+      institutionTypes: unique(data.map((d) => d.institutionType?.value)),
       startYears: unique(
         data.map((d) =>
           d.start ? new Date(d.start).getFullYear().toString() : null
@@ -190,6 +190,7 @@ export function UniversitiesClientTable({
 
   const columns = React.useMemo(() => buildColumns(filterOpts), [filterOpts]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -228,7 +229,6 @@ export function UniversitiesClientTable({
     JSON.stringify(columnOrder) !== JSON.stringify(DEFAULT_COLUMN_ORDER);
 
   // Stable ID for DndContext — prevents SSR/client aria-describedby mismatch
-  const dndId = React.useId();
 
   // Only the visible column IDs in current order, for SortableContext
   const visibleColIds = table.getVisibleLeafColumns().map((col) => col.id);
@@ -285,7 +285,7 @@ export function UniversitiesClientTable({
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
+            <DropdownMenuContent align="end" className="w-45">
               <div className="flex items-center justify-between px-2 py-1.5">
                 <DropdownMenuLabel className="p-0 text-xs">
                   Mostrar columnas
@@ -407,7 +407,7 @@ export function UniversitiesClientTable({
               value={`${table.getState().pagination.pageSize}`}
               onValueChange={(v) => table.setPageSize(Number(v))}
             >
-              <SelectTrigger className="h-8 w-[64px]">
+              <SelectTrigger className="h-8 w-16">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent side="top">

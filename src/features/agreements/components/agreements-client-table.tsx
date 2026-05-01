@@ -149,12 +149,12 @@ export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
 
   const filterOpts = React.useMemo(
     () => ({
-      types: unique(data.map((d) => d.type?.name)),
+      types: unique(data.map((d) => d.type?.value)),
       statuses: unique(data.map((d) => d.status?.value)),
       beneficiaries: unique(
-        data.flatMap((d) => d.beneficiaries.map((b) => b.beneficiary.name))
+        data.flatMap((d) => d.beneficiaries.map((b) => b.beneficiary.value))
       ),
-      attrs: unique(data.flatMap((d) => d.attrs.map((a) => a.attr.name))),
+      attrs: unique(data.flatMap((d) => d.attrs.map((a) => a.attr.value))),
     }),
     [data]
   );
@@ -164,6 +164,7 @@ export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
     [filterOpts]
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -248,7 +249,7 @@ export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[180px]">
+          <DropdownMenuContent align="end" className="w-45">
             <div className="flex items-center justify-between px-2 py-1.5">
               <DropdownMenuLabel className="p-0 text-xs">
                 Mostrar columnas
@@ -357,7 +358,7 @@ export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
               value={`${table.getState().pagination.pageSize}`}
               onValueChange={(v) => table.setPageSize(Number(v))}
             >
-              <SelectTrigger className="h-8 w-[64px]">
+              <SelectTrigger className="h-8 w-16">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent side="top">
