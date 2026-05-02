@@ -23,7 +23,7 @@ export async function changeUserRoleAction(
   targetUserId: string,
   newRole: Role
 ): Promise<FormState> {
-  const authz = await checkPermission('user:edit');
+  const authz = await checkPermission('write:user');
   if (!authz.authorized)
     return {
       type: 'error',
@@ -78,7 +78,7 @@ export async function updateUserExpiryAction(
   targetUserId: string,
   newDate: string
 ): Promise<FormState> {
-  const authz = await checkPermission('user:edit');
+  const authz = await checkPermission('write:user');
   if (!authz.authorized)
     return {
       type: 'error',

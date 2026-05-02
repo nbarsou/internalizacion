@@ -8,7 +8,7 @@ export const metadata = { title: 'Administración de usuarios' };
 
 export default async function AdminPage() {
   const { can, actingUserId, actingIsSuperuser } =
-    await requirePermission('user:view');
+    await requirePermission('read:user');
 
   const [users, pendingInvites] = await Promise.all([
     dbGetUsers(),
@@ -18,14 +18,13 @@ export default async function AdminPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-8">
       {/* ── Invite section (gated) ─────────────────────────────── */}
-      {can['user:view'] && (
-        <section aria-labelledby="invite-heading" className="space-y-3">
-          <InviteManagement
-            pendingInvites={pendingInvites}
-            actingIsSuperuser={actingIsSuperuser}
-          />
-        </section>
-      )}
+
+      <section aria-labelledby="invite-heading" className="space-y-3">
+        <InviteManagement
+          pendingInvites={pendingInvites}
+          actingIsSuperuser={actingIsSuperuser}
+        />
+      </section>
 
       {/* ── User list ──────────────────────────────────────────── */}
       <section aria-labelledby="members-heading" className="space-y-3">

@@ -3,19 +3,16 @@
 import { UpdateRoleSelect } from './update-role-select';
 import { UpdateExpiryPicker } from './update-expiry-picker';
 import type { UsersDTO } from '../db';
-import type { Permission } from '@/lib/permissions';
 import { ROLE_LABELS } from '@/lib/enums';
 
 interface UserRowProps {
   user: UsersDTO;
-  can: Record<Permission, boolean>;
   actingUserId: string;
   actingIsSuperuser: boolean;
 }
 
 export function UserRow({
   user,
-  can,
   actingUserId,
   actingIsSuperuser,
 }: UserRowProps) {
@@ -26,7 +23,6 @@ export function UserRow({
   // No puedes modificar a un superuser.
   // Si no eres superuser, no puedes modificar a otro ADMIN.
   const canModify =
-    can['user:edit'] &&
     !isSelf &&
     !user.isSuperuser &&
     (actingIsSuperuser || user.role !== 'ADMIN');

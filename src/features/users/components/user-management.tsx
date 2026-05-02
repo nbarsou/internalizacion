@@ -19,7 +19,6 @@ interface UserManagementProps {
 
 export function UserManagement({
   users,
-  can,
   actingUserId,
   actingIsSuperuser,
 }: UserManagementProps) {
@@ -37,7 +36,6 @@ export function UserManagement({
             <UserRow
               key={user.id}
               user={user}
-              can={can}
               actingUserId={actingUserId}
               actingIsSuperuser={actingIsSuperuser}
             />
