@@ -143,9 +143,11 @@ function DraggableHeader({
 
 interface UniversitiesClientTableProps {
   data: UniversityDTO[];
+  canCreate: boolean;
 }
 
 export function UniversitiesClientTable({
+  canCreate,
   data,
 }: UniversitiesClientTableProps) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -317,16 +319,18 @@ export function UniversitiesClientTable({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button
-            size="sm"
-            className="h-8 gap-1.5 bg-orange-600 text-white hover:bg-orange-700"
-            asChild
-          >
-            <Link href="/universities/create">
-              <Plus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Nueva institución</span>
-            </Link>
-          </Button>
+          {canCreate && (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 bg-orange-600 text-white hover:bg-orange-700"
+              asChild
+            >
+              <Link href="/universities/create">
+                <Plus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Nueva institución</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -407,7 +411,7 @@ export function UniversitiesClientTable({
               value={`${table.getState().pagination.pageSize}`}
               onValueChange={(v) => table.setPageSize(Number(v))}
             >
-              <SelectTrigger className="h-8 w-16">
+              <SelectTrigger className="h-8 w-18">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent side="top">

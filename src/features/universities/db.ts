@@ -3,92 +3,19 @@ import 'server-only';
 import { customAlphabet } from 'nanoid';
 
 import { prisma } from '@/lib/prisma';
-import { UniversityInput, UniversityUpdatePayload } from './schemas';
+import { UniversityInput } from './schemas';
 import { toSlug } from '@/lib/slugify';
 import { Prisma } from '@/generated/prisma/client';
 
 const nanoidSlug = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 4);
 
+// ── Custom error classes ──────────────────────────────────────────────────────
+
 export class UniversityNotFoundError extends Error {}
 export class DuplicateSlugError extends Error {}
 export class InvalidReferenceError extends Error {}
 
-export async function dbGetUniversities() {
-  return prisma.university.findMany({
-    where: { deletedAt: null },
-    include: {
-      region: true,
-      country: true,
-      institutionType: true,
-      campus: true,
-      utilization: true,
-      contacts: true, // ← was missing
-      observations: true, // ← was missing
-      _count: { select: { agreements: true } },
-      agreements: {
-        where: { deletedAt: null },
-        include: {
-          type: true,
-          status: true, // ← was missing
-          observations: true, // ← was missing
-          beneficiaries: {
-            // ← was missing
-            include: { beneficiary: true },
-          },
-          attrs: {
-            // ← was missing
-            include: { attr: true },
-          },
-        },
-      },
-    },
-    orderBy: { name: 'asc' },
-  });
-}
-
-// keep UniversitiesDTO as the array form if anything else uses it
-export type UniversitiesDTO = UniversityDTO[];
-
-export async function dbGetUniversityBySlug(slug: string) {
-  const university = await prisma.university.findUnique({
-    where: { slug },
-    include: {
-      region: true,
-      country: true,
-      institutionType: true,
-      campus: true,
-      utilization: true,
-      _count: { select: { agreements: true } },
-
-      contacts: {
-        // Removed the `include` block here. Prisma fetches standard columns
-        // (concernType, valueType, name, value) automatically.
-        orderBy: { concernType: 'asc' },
-      },
-
-      agreements: {
-        include: {
-          type: true, // Assuming this is a relation
-          status: true, // Assuming this is a relation
-          attrs: { include: { attr: true } },
-          beneficiaries: { include: { beneficiary: true } },
-          observations: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      },
-
-      observations: {
-        orderBy: { createdAt: 'desc' },
-      },
-    },
-  });
-
-  if (!university) throw new UniversityNotFoundError();
-
-  return university;
-}
-
-export type UniversityDTO = Awaited<ReturnType<typeof dbGetUniversityBySlug>>;
+// ── Validation ────────────────────────────────────────────────────────────────
 
 export async function validateRefs(data: {
   regionId: number;
@@ -126,6 +53,7 @@ export async function validateRefs(data: {
     throw new InvalidReferenceError();
   }
 }
+// ── Create ────────────────────────────────────────────────────────────────
 
 export async function dbCreateUniversity(data: UniversityInput) {
   const baseSlug = toSlug(data.name);
@@ -171,10 +99,90 @@ export async function dbCreateUniversity(data: UniversityInput) {
   throw new Error(`Could not generate a unique slug for: ${baseSlug}`);
 }
 
-export async function dbUpdateUniversity(
-  slug: string,
-  data: UniversityUpdatePayload
-) {
+// ── Read ────────────────────────────────────────────────────────────────
+
+export async function dbGetUniversities() {
+  return prisma.university.findMany({
+    where: { deletedAt: null },
+    include: {
+      region: true,
+      country: true,
+      institutionType: true,
+      campus: true,
+      utilization: true,
+      contacts: true, // ← was missing
+      observations: true, // ← was missing
+      _count: { select: { agreements: true } },
+      agreements: {
+        where: { deletedAt: null },
+        include: {
+          type: true,
+          status: true, // ← was missing
+          observations: true, // ← was missing
+          beneficiaries: {
+            // ← was missing
+            include: { beneficiary: true },
+          },
+          attrs: {
+            // ← was missing
+            include: { attr: true },
+          },
+        },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+}
+
+// keep UniversitiesDTO as the array form if anything else uses it
+export type UniversitiesDTO = Awaited<
+  ReturnType<typeof dbGetUniversities>
+>[number];
+
+export async function dbGetUniversityBySlug(slug: string) {
+  const university = await prisma.university.findUnique({
+    where: { slug },
+    include: {
+      region: true,
+      country: true,
+      institutionType: true,
+      campus: true,
+      utilization: true,
+      _count: { select: { agreements: true } },
+
+      contacts: {
+        // Removed the `include` block here. Prisma fetches standard columns
+        // (concernType, valueType, name, value) automatically.
+        orderBy: { concernType: 'asc' },
+      },
+
+      agreements: {
+        include: {
+          type: true, // Assuming this is a relation
+          status: true, // Assuming this is a relation
+          attrs: { include: { attr: true } },
+          beneficiaries: { include: { beneficiary: true } },
+          observations: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+
+      observations: {
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  });
+
+  if (!university) throw new UniversityNotFoundError();
+
+  return university;
+}
+
+export type UniversityDTO = Awaited<ReturnType<typeof dbGetUniversityBySlug>>;
+
+// ── Update ────────────────────────────────────────────────────────────────
+
+export async function dbUpdateUniversity(slug: string, data: UniversityInput) {
   const result = await prisma.university.updateMany({
     where: { slug },
     data: {
@@ -191,6 +199,15 @@ export async function dbUpdateUniversity(
       campusId: data.campusId,
       utilizationId: data.utilizationId,
     },
+  });
+  if (result.count === 0) throw new UniversityNotFoundError();
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────
+
+export async function dbDeleteUniversity(id: string) {
+  const result = await prisma.university.deleteMany({
+    where: { id },
   });
   if (result.count === 0) throw new UniversityNotFoundError();
 }

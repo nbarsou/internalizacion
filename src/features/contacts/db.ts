@@ -1,70 +1,81 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-import type {
-  ContactConcernType,
-  ContactValueType,
-} from '@/generated/prisma/client';
+import { ContactInput } from './schemas';
 
 // ── Custom error classes ──────────────────────────────────────────────────────
 
+export class UniversityNotFoundError extends Error {}
 export class ContactNotFoundError extends Error {}
 
-// ── Read functions ────────────────────────────────────────────────────────────
+// ── Create ────────────────────────────────────────────────────────────────
+
+export async function dbCreateContact(slug: string, data: ContactInput) {
+  const university = await prisma.university.findUnique({
+    where: { slug },
+  });
+
+  if (!university) throw new UniversityNotFoundError();
+
+  return await prisma.contact.create({
+    data: {
+      universityId: university.id,
+      name: data.name,
+      concernType: data.concernType,
+      valueType: data.valueType,
+      value: data.value,
+    },
+  });
+}
+
+// ── Read ────────────────────────────────────────────────────────────
 
 export async function dbGetContactsByUniversity(universityId: string) {
-  return prisma.contact.findMany({
+  return await prisma.contact.findMany({
     where: { universityId },
+    select: {
+      id: true,
+      name: true,
+      concernType: true,
+      valueType: true,
+      value: true,
+    },
     orderBy: [{ concernType: 'asc' }, { valueType: 'asc' }],
   });
 }
 
-// ── Write functions ───────────────────────────────────────────────────────────
+// The entire array (List of contacts)
+export type ContactsDTO = Awaited<ReturnType<typeof dbGetContactsByUniversity>>;
 
-export type CreateContactData = {
-  universityId: string;
-  concernType: ContactConcernType;
-  valueType: ContactValueType;
-  name?: string | null;
-  value: string;
-};
+// A single item from the array (Single contact)
+export type ContactDTO = ContactsDTO[number];
 
-// Create a new contact entry. (e.g., adding a specific EMAIL for an INCOMING concern)
-export async function dbCreateContact(data: CreateContactData) {
-  return prisma.contact.create({
-    data,
-  });
-}
-
-export type UpdateContactData = Partial<
-  Omit<CreateContactData, 'universityId'>
->;
+// ── Update ────────────────────────────────────────────────────────────────
 
 export async function dbUpdateContact(
   id: string,
-  universityId: string,
-  data: UpdateContactData
+  slug: string,
+  data: ContactInput
 ) {
-  // We use updateMany scoped to universityId to prevent IDOR vulnerabilities.
-  // Even though it targets a unique ID, updateMany allows us to filter by both.
+  const university = await prisma.university.findUnique({
+    where: { slug },
+  });
+
+  if (!university) throw new UniversityNotFoundError();
+
   const result = await prisma.contact.updateMany({
-    where: { id, universityId },
+    where: { id, universityId: university.id },
     data,
   });
 
   if (result.count === 0) throw new ContactNotFoundError();
-
-  // Return the updated row
-  return prisma.contact.findFirstOrThrow({
-    where: { id },
-  });
 }
 
-export async function dbSoftDeleteContact(id: string, universityId: string) {
-  // Scope to universityId to prevent IDOR
-  const result = await prisma.contact.updateMany({
-    where: { id, universityId },
-    data: { deletedAt: new Date() },
+// ── Delete ────────────────────────────────────────────────────────────────
+
+export async function dbDeleteContact(id: string) {
+  const result = await prisma.contact.deleteMany({
+    where: { id },
   });
 
   if (result.count === 0) throw new ContactNotFoundError();

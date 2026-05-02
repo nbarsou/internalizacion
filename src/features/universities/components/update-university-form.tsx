@@ -1,7 +1,6 @@
 'use client';
 
-import { startTransition, useActionState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { startTransition, useActionState, useEffect, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,17 +28,10 @@ import {
   UniversityFields,
   UniversityInput,
 } from '../schemas';
-import { createUniversityAction, UniversityActionResult } from '../actions';
+import { updateUniversityAction, UniversityActionResult } from '../actions';
+import type { UniversityDTO } from '@/features/universities/db';
 import type { AllRefs } from '@/features/refs/db';
 import { toast } from 'sonner';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Popover,
   PopoverContent,
@@ -51,57 +43,84 @@ import { es } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Spinner } from '@/components/ui/spinner';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
 
 const fieldId = (field: UniversityFields) =>
-  `create-university-${field}` as const;
+  `edit-university-${field}` as const;
 const errorId = (field: UniversityFields) =>
-  `create-university-${field}-error` as const;
-interface CreateUniversityFormProps {
+  `edit-university-${field}-error` as const;
+
+interface UpdateUniversityFormProps {
+  university: UniversityDTO;
   refs: AllRefs;
+  onCancel: () => void;
 }
 
-export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
-  const router = useRouter();
+export function UpdateUniversityAction({
+  university,
+  refs,
+  onCancel,
+}: UpdateUniversityFormProps) {
+  const boundAction = useMemo(
+    () => updateUniversityAction.bind(null, university.slug),
+    [university.slug]
+  );
 
   const [state, dispatch, isPending] = useActionState<
     UniversityActionResult,
     UniversityInput
-  >(createUniversityAction, null);
+  >(boundAction, null);
+
+  // 1. Memoize the initial values so they don't recreate on every render!
+  const defaultFormValues = useMemo<UniversityInput>(
+    () => ({
+      name: university.name,
+      webPage: university.web_page ?? undefined,
+      start: new Date(university.start),
+      expires: university.expires ? new Date(university.expires) : undefined,
+      isCatholic: university.isCatholic,
+      city: university.city ?? undefined,
+      address: university.address ?? undefined,
+      regionId: university.regionId,
+      countryId: university.countryId,
+      institutionTypeId: university.institutionTypeId,
+      campusId: university.campusId,
+      utilizationId: university.utilizationId,
+    }),
+    [university]
+  );
 
   const {
     register,
     control,
     handleSubmit,
-    formState: { errors: clientErrors },
+    formState: { errors: clientErrors, isDirty },
   } = useForm<UniversityInput>({
     resolver: zodResolver(univeristySchema),
     mode: 'onBlur',
-    defaultValues: {
-      name: '',
-      webPage: '',
-      start: undefined,
-      expires: undefined,
-      isCatholic: false,
-      city: '',
-      address: '',
-      regionId: undefined,
-      countryId: undefined,
-      institutionTypeId: undefined,
-      campusId: undefined,
-      utilizationId: undefined,
-    },
+    // 2. Pass the memoized values here
+    defaultValues: defaultFormValues,
   });
 
   useEffect(() => {
     if (!state) return;
     switch (state.type) {
-      case 'validation':
-        break;
       case 'error':
         toast.error(state.message);
         break;
+      case 'success':
+        toast.success(state.message);
+        onCancel(); // Close form/modal on success
+        break;
     }
-  }, [state]);
+  }, [state, onCancel]);
 
   function onSubmit(data: UniversityInput) {
     startTransition(() => dispatch(data));
@@ -109,6 +128,7 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
 
   const serverErrors = state?.type === 'validation' ? state.errors : undefined;
 
+  // Merge Client & Server Errors
   const nameError = clientErrors.name?.message ?? serverErrors?.name?.[0];
   const startError = clientErrors.start?.message ?? serverErrors?.start?.[0];
   const expiresError =
@@ -214,6 +234,8 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
                               mode="single"
                               selected={field.value}
                               onSelect={field.onChange}
+                              disabled={isPending}
+                              required
                             />
                           </PopoverContent>
                         </Popover>
@@ -259,6 +281,10 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
                                 'w-full justify-start text-left font-normal',
                                 'data-[empty=true]:text-muted-foreground'
                               )}
+                              onChange={(date) => {
+                                // date will be undefined/null when user clears — forward it!
+                                field.onChange(date ?? undefined);
+                              }}
                             >
                               <CalendarIcon />
                               {field.value ? (
@@ -273,6 +299,7 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
                               mode="single"
                               selected={field.value}
                               onSelect={field.onChange}
+                              disabled={isPending}
                             />
                           </PopoverContent>
                         </Popover>
@@ -543,7 +570,7 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
                           <SelectValue placeholder="Elige un tipo de institución" />
                         </SelectTrigger>
                         <SelectContent>
-                          {refs.countries.map((country) => (
+                          {refs.institutionTypes.map((country) => (
                             // 3. Convert the DB ID (number) to a string for the SelectItem
                             <SelectItem
                               key={country.id}
@@ -597,7 +624,7 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
                         <SelectValue placeholder="Elige un campus" />
                       </SelectTrigger>
                       <SelectContent>
-                        {refs.countries.map((country) => (
+                        {refs.campuses.map((country) => (
                           // 3. Convert the DB ID (number) to a string for the SelectItem
                           <SelectItem
                             key={country.id}
@@ -652,7 +679,7 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
                         <SelectValue placeholder="Elige un nivel de utilización" />
                       </SelectTrigger>
                       <SelectContent>
-                        {refs.countries.map((country) => (
+                        {refs.utilizations.map((country) => (
                           // 3. Convert the DB ID (number) to a string for the SelectItem
                           <SelectItem
                             key={country.id}
@@ -674,23 +701,27 @@ export function CreateUniversityForm({ refs }: CreateUniversityFormProps) {
             </Field>
           </FieldGroup>
         </CardContent>
-        <CardFooter className="flex justify-between border-t pt-6">
+        <CardFooter className="flex items-center justify-end gap-2 border-t pt-4">
           <Button
-            variant="ghost"
             type="button"
+            variant="ghost"
+            onClick={onCancel}
             disabled={isPending}
-            onClick={() => router.back()}
           >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button
+            type="submit"
+            disabled={isPending || !isDirty}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
             {isPending ? (
               <>
-                <Spinner data-icon="inline-start" />
-                Creando...
+                <Spinner data-icon="inline-start" className="mr-2" />
+                Guardando…
               </>
             ) : (
-              'Crear Institución'
+              'Guardar cambios'
             )}
           </Button>
         </CardFooter>

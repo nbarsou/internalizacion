@@ -58,7 +58,7 @@ interface InviteFormProps {
 export function InviteForm({ actingIsSuperuser }: InviteFormProps) {
   const [state, dispatch, isPending] = useActionState<
     InviteActionState,
-    FormData
+    InviteInput
   >(createInviteAction, null);
 
   const {
@@ -89,12 +89,7 @@ export function InviteForm({ actingIsSuperuser }: InviteFormProps) {
   }, [state, reset]);
 
   function onSubmit(data: InviteInput) {
-    const formData = new FormData();
-    const set = (key: InviteFields, value: string) => formData.set(key, value);
-    set('email', data.email);
-    set('role', data.role);
-    set('expiresAt', data.expiresAt ? data.expiresAt.toISOString() : '');
-    startTransition(() => dispatch(formData));
+    startTransition(() => dispatch(data));
   }
 
   const serverErrors = state?.type === 'validation' ? state.errors : undefined;

@@ -1,66 +1,193 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  Globe,
+  MapPin,
+  FileText,
+  Building2,
+  GraduationCap,
+  TrendingUp,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { dbGetUniversityBySlug } from '@/features/universities/db';
-import { dbGetAgreementsByUniversity } from '@/features/agreements/db';
+import {
+  dbGetAgreementsByUniversity,
+  redactAgreements,
+} from '@/features/agreements/db';
 import { dbGetObservationsByUniversity } from '@/features/observations/db';
 import { dbGetAllRefs } from '@/features/refs/db';
-import { UniversityHeaderCard } from '@/features/universities/components/university-header-card';
-import { AgreementsTable } from '@/features/agreements/components/agreements-table';
-import { ObservationPanel } from '@/features/observations/components/observation-panel';
-import { ContactsTable } from '@/features/contacts/components/contacts-table';
+import { AgreementsClient } from '@/features/agreements/components/agreements-client';
+import { ObservationClient } from '@/features/observations/components/client-observation';
+import { ContactClient } from '@/features/contacts/components/contacts-client';
+import { requirePermission } from '@/lib/authz';
+import { UniversityHeaderActions } from '@/features/universities/components/university-header-actions';
 
 type Props = { params: Promise<{ slug: string }> };
 
-export default async function UniversityAgreementsPage({ params }: Props) {
+export default async function UniversityDetailPage({ params }: Props) {
+  const { can } = await requirePermission('read:university');
+
   const { slug } = await params;
 
   const university = await dbGetUniversityBySlug(slug);
   if (!university) notFound();
 
-  const [agreements, observations, refs] = await Promise.all([
+  const [rawAgreements, observations, refs] = await Promise.all([
     dbGetAgreementsByUniversity(university.id),
     dbGetObservationsByUniversity(university.id),
     dbGetAllRefs(),
   ]);
 
+  const agreements = redactAgreements(rawAgreements, can['read:sensitive']);
   const universityObs = observations.filter((o) => o.agreementId === null);
 
+  // Build location string: "Ciudad, País — Región"
+  const locationParts = [university.city, university.country.value]
+    .filter(Boolean)
+    .join(', ');
+  const locationWithRegion = university.region?.value
+    ? `${locationParts} — ${university.region.value}`
+    : locationParts;
+
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Button variant="ghost" size="sm" className="gap-1 pl-0" asChild>
-          <Link href="/universities">
-            <ArrowLeft className="h-4 w-4" />
-            Todas las instituciones
-          </Link>
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4">
+      {/* Back navigation */}
+      <Button variant="ghost" size="sm" className="w-fit gap-1 pl-0" asChild>
+        <Link href="/universities">
+          <ArrowLeft className="h-4 w-4" />
+          Todas las instituciones
+        </Link>
+      </Button>
 
-      <UniversityHeaderCard university={university} refs={refs} />
+      <Card>
+        {/* ── Header: university identity + actions ── */}
+        <CardHeader className="flex flex-col gap-5 pb-6">
+          {/* ── Row 1: Title, Subtitle & Actions ── */}
+          <div className="flex items-start justify-between gap-6">
+            {/* Main Info Group */}
+            <div className="flex min-w-0 flex-col gap-2.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-foreground text-2xl leading-none font-bold tracking-tight">
+                  {university.name}
+                </h1>
+                {university.isCatholic && (
+                  <Badge
+                    variant="secondary"
+                    className="border-none bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
+                  >
+                    ✝ Católica
+                  </Badge>
+                )}
+              </div>
 
-      <ContactsTable
-        universityId={university.id}
-        universityName={university.name}
-      />
+              {/* Subtitle Row: Location & Website */}
+              <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-sm">
+                {locationWithRegion && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-blue-500" />
+                    {locationWithRegion}
+                  </span>
+                )}
 
-      {universityObs.length > 0 && (
-        <ObservationPanel
-          observations={universityObs}
-          context="university"
-          title="Observaciones de la institución"
-          maxHeight="200px"
-        />
-      )}
+                {university.web_page && (
+                  <a
+                    href={university.web_page}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary flex items-center gap-1.5 transition-colors hover:underline"
+                  >
+                    <Globe className="h-4 w-4 text-gray-400" />
+                    {university.web_page}
+                  </a>
+                )}
+              </div>
+            </div>
 
-      <AgreementsTable
-        universityId={university.id}
-        universitySlug={slug}
-        universityName={university.name}
-        agreements={agreements}
-        observations={observations}
-      />
+            {/* Actions */}
+            {can['write:university'] && (
+              <div className="shrink-0">
+                <UniversityHeaderActions university={university} slug={slug} />
+              </div>
+            )}
+          </div>
+
+          {/* ── Row 2: Shadcn Badges for Metadata ── */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {university.institutionType && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground bg-background flex items-center gap-1.5 px-3 py-1 text-sm font-normal"
+              >
+                <Building2 className="h-3.5 w-3.5 text-violet-500" />
+                {university.institutionType.value}
+              </Badge>
+            )}
+
+            {university.campus && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground bg-background flex items-center gap-1.5 px-3 py-1 text-sm font-normal"
+              >
+                <GraduationCap className="h-3.5 w-3.5 text-amber-500" />
+                {university.campus.value}
+              </Badge>
+            )}
+
+            {university.utilization && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground bg-background flex items-center gap-1.5 px-3 py-1 text-sm font-normal"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                {university.utilization.value}
+              </Badge>
+            )}
+
+            <Badge
+              variant="outline"
+              className="text-muted-foreground bg-background flex items-center gap-1.5 px-3 py-1 text-sm font-normal"
+            >
+              <FileText className="h-3.5 w-3.5 text-indigo-500" />
+              {university._count.agreements} Convenios
+            </Badge>
+          </div>
+        </CardHeader>
+
+        {/* ── Content: feature sections ── */}
+        <CardContent className="flex flex-col gap-y-6 pt-0">
+          <Separator className="mb-6" />
+
+          <ContactClient
+            slug={university.slug}
+            contacts={university.contacts}
+            canWrite={can['write:contact']}
+          />
+
+          <Separator className="my-6" />
+
+          <ObservationClient
+            slug={university.slug}
+            observations={universityObs}
+            context="university"
+            canWrite={can['write:observation']}
+          />
+
+          <Separator className="my-6" />
+
+          <AgreementsClient
+            universityId={university.id}
+            universitySlug={slug}
+            agreements={agreements}
+            refs={refs}
+            canWrite={can['write:agreement']}
+            canReadSensitive={can['read:sensitive']}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

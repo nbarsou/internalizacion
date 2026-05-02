@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const refId = z.number().int().min(0);
+const refId = z.number('Por favor elige un valor.').int().min(0);
 
 export const UNIVERSITY_FIELDS = {
   name: { required: true, label: 'Nombre' },
@@ -15,7 +15,7 @@ export const UNIVERSITY_FIELDS = {
   institutionTypeId: { required: true, label: 'Tipo de Institución' },
   campusId: { required: true, label: 'Campus' },
   utilizationId: { required: true, label: 'Utilización' },
-};
+} as const;
 
 export type UniversityFields = keyof typeof UNIVERSITY_FIELDS;
 
@@ -26,17 +26,14 @@ export const univeristySchema = z
       .min(2, 'El nombre debe tener al menos 2 caracteres')
       .max(255)
       .trim(),
-
-    // Empty string is valid (no website); if non-empty must be a valid URL
     start: z.date('La fecha de inicio es obligatoria'),
     expires: z.date().optional(),
     isCatholic: z.boolean(),
-
-    webPage: z.url().optional(),
+    webPage: z.url('Ingresa una URL valida.').optional(),
 
     regionId: refId,
-    city: z.string().trim().max(150).optional(),
     countryId: refId,
+    city: z.string().trim().max(150).optional(),
     address: z.string().trim().max(500).optional(),
 
     institutionTypeId: refId,
@@ -54,13 +51,3 @@ export const univeristySchema = z
   });
 
 export type UniversityInput = z.infer<typeof univeristySchema>;
-
-export type UniversityUpdatePayload = Omit<
-  UniversityInput,
-  'expires' | 'webPage' | 'city' | 'address'
-> & {
-  expires: Date | null; // null = clear
-  webPage: string | null; // null = clear
-  city: string | null; // null = clear
-  address: string | null; // null = clear
-};

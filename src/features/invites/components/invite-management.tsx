@@ -22,11 +22,13 @@ import type { PendingInvite } from '../db';
 interface InviteManagementProps {
   pendingInvites: PendingInvite[];
   actingIsSuperuser: boolean;
+  canWrite: boolean;
 }
 
 export function InviteManagement({
   pendingInvites,
   actingIsSuperuser,
+  canWrite,
 }: InviteManagementProps) {
   // Optimistically remove deleted invites from the list
   const [optimisticInvites, removeOptimistic] = useOptimistic(
@@ -60,7 +62,7 @@ export function InviteManagement({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <InviteForm actingIsSuperuser={actingIsSuperuser} />
+        {canWrite && <InviteForm actingIsSuperuser={actingIsSuperuser} />}
 
         {/* ── Pending list ──────────────────────────────────── */}
         {optimisticInvites.length > 0 && (
@@ -86,16 +88,19 @@ export function InviteManagement({
                   <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs font-medium">
                     {ROLE_LABELS[invite.role]}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={isPending}
-                    className="text-muted-foreground hover:text-destructive h-7 w-7"
-                    onClick={() => handleDelete(invite.id)}
-                    aria-label={`Eliminar invitación para ${invite.email}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={isPending}
+                      className="text-muted-foreground hover:text-destructive h-7 w-7"
+                      onClick={() => handleDelete(invite.id)}
+                      aria-label={`Eliminar invitación para ${invite.email}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

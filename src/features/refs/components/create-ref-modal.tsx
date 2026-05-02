@@ -52,7 +52,7 @@ export function CreateRefModal({
   const submissionKeyRef = useRef(0);
   const handledKeyRef = useRef(0);
 
-  const [state, dispatch, isPending] = useActionState<RefActionState, FormData>(
+  const [state, dispatch, isPending] = useActionState<RefActionState, RefInput>(
     boundAction,
     null
   );
@@ -99,10 +99,7 @@ export function CreateRefModal({
 
   // Pure function — builds FormData and dispatches
   function onSubmit(data: RefInput) {
-    const fd = new FormData();
-    fd.set('value', data.value);
-    fd.set('color', data.color);
-    startTransition(() => dispatch(fd));
+    startTransition(() => dispatch(data));
   }
 
   // Mutates the ref — wired to the form, NEVER to handleSubmit

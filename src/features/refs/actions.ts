@@ -20,22 +20,15 @@ import { pickNextColor } from '@/lib/color-palette';
 import { FormState } from '@/lib/form-utils';
 import { checkPermission } from '@/lib/authz';
 import {
-  BeneficiaryFields,
   beneficiaryInputSchema,
   refInputSchema,
   TABLE_COLOR_OFFSETS,
-  type RefFields,
   type RefTableName,
+  RefInput,
+  BeneficiaryInput,
 } from './schemas';
 
-export type RefActionState = FormState<RefFields>;
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function getStr(formData: FormData, key: string): string {
-  const v = formData.get(key);
-  return typeof v === 'string' ? v : '';
-}
 
 /**
  * If the user submitted '', server picks from the palette.
@@ -43,7 +36,7 @@ function getStr(formData: FormData, key: string): string {
  */
 async function resolveColor(
   table: RefTableName,
-  rawColor: string
+  rawColor?: string
 ): Promise<string> {
   if (rawColor) return rawColor;
 
@@ -56,24 +49,29 @@ async function resolveColor(
   return pickNextColor(used, offset);
 }
 
+async function resolveBeneficiaryColor(rawColor?: string): Promise<string> {
+  if (rawColor) return rawColor;
+  const used = await dbGetBeneficiaryUsedColors();
+  return pickNextColor(used);
+}
+
+export type RefActionState = FormState<keyof RefInput>;
+
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export async function actionCreateRef(
   table: RefTableName,
-  _prev: RefActionState,
-  formData: FormData
+  prev: RefActionState,
+  data: RefInput
 ): Promise<RefActionState> {
-  const authz = await checkPermission('refs:create');
+  const authz = await checkPermission('write:refs');
   if (!authz.authorized)
     return {
       type: 'error',
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  const parsed = refInputSchema.safeParse({
-    value: getStr(formData, 'value'),
-    color: getStr(formData, 'color'),
-  });
+  const parsed = refInputSchema.safeParse(data);
   if (!parsed.success) {
     return {
       type: 'validation',
@@ -105,20 +103,17 @@ export async function actionCreateRef(
 export async function actionUpdateRef(
   id: number,
   table: RefTableName,
-  _prev: RefActionState,
-  formData: FormData
+  prevState: RefActionState,
+  data: RefInput
 ): Promise<RefActionState> {
-  const authz = await checkPermission('refs:edit');
+  const authz = await checkPermission('write:refs');
   if (!authz.authorized)
     return {
       type: 'error',
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  const parsed = refInputSchema.safeParse({
-    value: getStr(formData, 'value'),
-    color: getStr(formData, 'color'),
-  });
+  const parsed = refInputSchema.safeParse(data);
   if (!parsed.success) {
     return {
       type: 'validation',
@@ -150,16 +145,15 @@ export async function actionDeleteRef(
   id: number,
   table: RefTableName
 ): Promise<FormState> {
-  const authz = await checkPermission('refs:delete');
+  const authz = await checkPermission('write:refs');
   if (!authz.authorized)
     return {
       type: 'error',
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  const strategy = refStrategies[table];
-
   try {
+    const strategy = refStrategies[table];
     await withRefErrors(() => strategy.delete(id));
     revalidatePath('/settings');
     return { type: 'success', message: 'Valor eliminado.' };
@@ -176,21 +170,15 @@ export async function actionDeleteRef(
   }
 }
 
-export type BeneficiaryActionState = FormState<BeneficiaryFields>;
-
-async function resolveBeneficiaryColor(rawColor: string): Promise<string> {
-  if (rawColor) return rawColor;
-  const used = await dbGetBeneficiaryUsedColors();
-  return pickNextColor(used);
-}
+export type BeneficiaryActionState = FormState<keyof BeneficiaryInput>;
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
 export async function actionCreateBeneficiary(
   _prev: BeneficiaryActionState,
-  formData: FormData
+  data: BeneficiaryInput
 ): Promise<BeneficiaryActionState> {
-  const authz = await checkPermission('refs:create');
+  const authz = await checkPermission('write:refs');
   if (!authz.authorized) {
     return {
       type: 'error',
@@ -198,15 +186,12 @@ export async function actionCreateBeneficiary(
     };
   }
 
-  const raw = {
-    cve: formData.get('cve'),
-    value: formData.get('value'),
-    color: formData.get('color'),
-  };
-
-  const parsed = beneficiaryInputSchema.safeParse(raw);
+  const parsed = beneficiaryInputSchema.safeParse(data);
   if (!parsed.success) {
-    return { type: 'validation', errors: parsed.error.flatten().fieldErrors };
+    return {
+      type: 'validation',
+      errors: z.flattenError(parsed.error).fieldErrors,
+    };
   }
 
   const color = await resolveBeneficiaryColor(parsed.data.color);
@@ -237,9 +222,9 @@ export async function actionCreateBeneficiary(
 export async function actionUpdateBeneficiary(
   id: number,
   _prev: BeneficiaryActionState,
-  formData: FormData
+  data: BeneficiaryInput
 ): Promise<BeneficiaryActionState> {
-  const authz = await checkPermission('refs:edit');
+  const authz = await checkPermission('write:refs');
   if (!authz.authorized) {
     return {
       type: 'error',
@@ -247,15 +232,12 @@ export async function actionUpdateBeneficiary(
     };
   }
 
-  const raw = {
-    cve: formData.get('cve'),
-    value: formData.get('value'),
-    color: formData.get('color'),
-  };
-
-  const parsed = beneficiaryInputSchema.safeParse(raw);
+  const parsed = beneficiaryInputSchema.safeParse(data);
   if (!parsed.success) {
-    return { type: 'validation', errors: parsed.error.flatten().fieldErrors };
+    return {
+      type: 'validation',
+      errors: z.flattenError(parsed.error).fieldErrors,
+    };
   }
 
   const color = await resolveBeneficiaryColor(parsed.data.color);
@@ -285,7 +267,7 @@ export async function actionUpdateBeneficiary(
 // ── Delete ────────────────────────────────────────────────────────────────────
 
 export async function actionDeleteBeneficiary(id: number): Promise<FormState> {
-  const authz = await checkPermission('refs:delete');
+  const authz = await checkPermission('write:refs');
   if (!authz.authorized) {
     return {
       type: 'error',

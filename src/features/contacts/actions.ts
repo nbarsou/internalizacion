@@ -1,125 +1,123 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { prisma } from '@/lib/prisma';
-import { ContactNotFoundError } from '@/features/contacts/db';
-import { contactSchema } from './schemas';
-import z from 'zod';
 
-export type ContactActionResult =
-  | { success: true }
-  | {
-      success: false;
-      fieldErrors: Partial<Record<string, string>>;
-      formError?: string;
-    };
+import {
+  ContactNotFoundError,
+  dbCreateContact,
+  dbDeleteContact,
+  dbUpdateContact,
+  UniversityNotFoundError,
+} from '@/features/contacts/db';
+import { ContactInput, contactSchema } from './schemas';
 
-function collectErrors(err: z.ZodError): Partial<Record<string, string>> {
-  const out: Partial<Record<string, string>> = {};
-  for (const issue of err.issues) {
-    const key = (issue.path[0] as string | undefined) ?? 'root';
-    if (!out[key]) out[key] = issue.message;
-  }
-  return out;
-}
+import { z } from 'zod';
+import { FormState } from '@/lib/form-utils';
+import { checkPermission } from '@/lib/authz';
+import { slugSchema } from '@/lib/schemas';
 
-// ── Create ────────────────────────────────────────────────────────────────────
+export type ContactActionResult = FormState<keyof ContactInput>;
 
 export async function actionCreateContact(
-  universityId: string,
-  rawData: unknown
+  slug: string,
+  prevState: ContactActionResult,
+  data: ContactInput
 ): Promise<ContactActionResult> {
-  const parsed = contactSchema.safeParse(rawData);
-  if (!parsed.success)
-    return { success: false, fieldErrors: collectErrors(parsed.error) };
+  const authz = await checkPermission('write:contact');
+  if (!authz.authorized) {
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+  }
+
+  const validatedFields = contactSchema.safeParse(data);
+  if (!validatedFields.success)
+    return {
+      type: 'validation',
+      errors: z.flattenError(validatedFields.error).fieldErrors,
+    };
 
   try {
-    await prisma.contact.create({
-      data: {
-        universityId,
-        concernType: parsed.data.concernType,
-        valueType: parsed.data.valueType,
-        value: parsed.data.value,
-        name: parsed.data.name || null,
-      },
-    });
-    revalidatePath(`/universities`);
-    return { success: true };
-  } catch {
-    return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al guardar. Intenta de nuevo.',
-    };
+    await dbCreateContact(slug, validatedFields.data);
+    revalidatePath(`/universities/${slug}`);
+    return { type: 'success', message: 'Contacto creado!' };
+  } catch (error) {
+    if (error instanceof UniversityNotFoundError) {
+      return { type: 'error', message: 'Algo salío mal! Intenta de nuevo.' };
+    }
+    console.error('[actionCreateContact]:', error);
+    return { type: 'error', message: 'Algo salío mal!' };
   }
 }
 
-// ── Update ────────────────────────────────────────────────────────────────────
-
-export async function actionUpdateContact(
-  id: string,
-  universityId: string,
-  rawData: unknown
+export async function updateContactAction(
+  contactId: string,
+  slug: string,
+  prevState: ContactActionResult,
+  data: ContactInput
 ): Promise<ContactActionResult> {
-  const parsed = contactSchema.safeParse(rawData);
-  if (!parsed.success)
-    return { success: false, fieldErrors: collectErrors(parsed.error) };
+  const authz = await checkPermission('write:contact');
+  if (!authz.authorized) {
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
+  }
+
+  const validatedFields = contactSchema.safeParse(data);
+  if (!validatedFields.success)
+    return {
+      type: 'validation',
+      errors: z.flattenError(validatedFields.error).fieldErrors,
+    };
 
   try {
-    const result = await prisma.contact.updateMany({
-      where: { id, universityId, deletedAt: null },
-      data: {
-        concernType: parsed.data.concernType,
-        valueType: parsed.data.valueType,
-        value: parsed.data.value,
-        name: parsed.data.name || null,
-      },
-    });
-    if (result.count === 0) throw new ContactNotFoundError();
-    revalidatePath(`/universities`);
-    return { success: true };
-  } catch (e) {
-    if (e instanceof ContactNotFoundError) {
-      return {
-        success: false,
-        fieldErrors: {},
-        formError: 'Contacto no encontrado.',
-      };
+    await dbUpdateContact(contactId, slug, validatedFields.data);
+    revalidatePath(`/universities/${slug}`);
+    return { type: 'success', message: 'Contacto actualizado!' };
+  } catch (error) {
+    if (error instanceof ContactNotFoundError) {
+      return { type: 'error', message: 'Algo salío mal! Intenta de nuevo.' };
     }
-    return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al guardar. Intenta de nuevo.',
-    };
+    console.error('[updateContactAction]:', error);
+    return { type: 'error', message: 'Algo salío mal!' };
   }
 }
 
-// ── Delete ────────────────────────────────────────────────────────────────────
+const deleteContactArgsSchema = z.object({
+  id: z.uuid(),
+  slug: slugSchema,
+});
 
-export async function actionDeleteContact(
-  id: string,
-  universityId: string
-): Promise<ContactActionResult> {
-  try {
-    const result = await prisma.contact.updateMany({
-      where: { id, universityId, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
-    if (result.count === 0) throw new ContactNotFoundError();
-    revalidatePath(`/universities`);
-    return { success: true };
-  } catch (e) {
-    if (e instanceof ContactNotFoundError) {
-      return {
-        success: false,
-        fieldErrors: {},
-        formError: 'Contacto no encontrado.',
-      };
-    }
+export async function deleteContactAction(
+  contactId: string,
+  slug: string
+): Promise<FormState> {
+  const authz = await checkPermission('write:contact');
+  if (!authz.authorized) {
     return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al eliminar. Intenta de nuevo.',
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
     };
+  }
+
+  const validatedArgs = deleteContactArgsSchema.safeParse({
+    id: contactId,
+    slug,
+  });
+  if (!validatedArgs.success)
+    return { type: 'error', message: 'Algo salio mal!' };
+
+  try {
+    await dbDeleteContact(validatedArgs.data.id);
+    revalidatePath(`/universities/${slug}`);
+    return { type: 'success', message: 'Contacto borrado!' };
+  } catch (error) {
+    if (error instanceof ContactNotFoundError) {
+      return { type: 'error', message: 'Algo salio mal! Intenta de nuevo.' };
+    }
+    console.error('[deleteContactAction]:', error);
+    return { type: 'error', message: 'Algo salio mal!' };
   }
 }

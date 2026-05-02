@@ -1,48 +1,53 @@
 import 'server-only';
 import { Role } from '@/generated/prisma/client';
 
-export type Permission =
-  | 'manage:all'
-  | 'university:view'
-  | 'university:edit'
-  | 'university:create'
-  | 'refs:view'
-  | 'refs:create'
-  | 'refs:edit'
-  | 'refs:delete'
-  | 'user:view'
-  | 'user:edit'
-  | 'agreement:view'
-  | 'agreement:create'
-  | 'agreement:edit'
-  | 'agreement:delete'
-  | 'metrics:view';
+type Entity =
+  | 'university'
+  | 'refs'
+  | 'user'
+  | 'agreement'
+  | 'observation'
+  | 'contact';
+type Action = 'read' | 'write';
+
+export type Permission = `${Action}:${Entity}` | 'read:sensitive';
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.ADMIN]: [
-    'manage:all',
-    'university:view',
-    'university:edit',
-    'university:create',
-    'user:view',
-    'user:edit',
-    'agreement:view',
-    'agreement:create',
-    'agreement:edit',
-    'agreement:delete',
-    'metrics:view',
+    'read:university',
+    'write:university',
+    'read:refs',
+    'write:refs',
+    'read:user',
+    'write:user',
+    'read:agreement',
+    'write:agreement',
+    'read:observation',
+    'write:observation',
+    'read:contact',
+    'write:contact',
+    'read:sensitive',
   ],
   [Role.EDITOR]: [
-    'university:view',
-    'university:edit',
-    'university:create',
-    'agreement:view',
-    'agreement:create',
-    'agreement:edit',
-    'agreement:delete',
-    'metrics:view',
+    'read:university',
+    'write:university',
+    'read:refs',
+    'write:refs',
+    'read:agreement',
+    'write:agreement',
+    'read:observation',
+    'write:observation',
+    'read:contact',
+    'write:contact',
+    'read:sensitive',
   ],
-  [Role.VIEWER]: ['university:view', 'agreement:view'],
+  [Role.VIEWER]: [
+    'read:university',
+    'read:refs',
+    'read:agreement',
+    'read:observation',
+    'read:contact',
+  ],
   [Role.WAITLISTED]: [], // ← was missing entirely
 };
 
@@ -54,23 +59,24 @@ const ROLE_PERMISSION_SETS: Record<Role, Set<Permission>> = {
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {
-  const set = ROLE_PERMISSION_SETS[role];
-  return set.has('manage:all') || set.has(permission);
+  return ROLE_PERMISSION_SETS[role].has(permission);
 }
 
 export function buildPermissions(role: Role): Record<Permission, boolean> {
   const allPermissions: Permission[] = [
-    'manage:all',
-    'university:view',
-    'university:edit',
-    'university:create',
-    'user:view',
-    'user:edit',
-    'agreement:view',
-    'agreement:create',
-    'agreement:edit',
-    'agreement:delete',
-    'metrics:view',
+    'read:university',
+    'write:university',
+    'read:refs',
+    'write:refs',
+    'read:user',
+    'write:user',
+    'read:agreement',
+    'write:agreement',
+    'read:observation',
+    'write:observation',
+    'read:contact',
+    'write:contact',
+    'read:sensitive',
   ];
 
   return Object.fromEntries(

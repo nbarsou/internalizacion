@@ -6,21 +6,31 @@ import { InviteInput } from './schemas';
 
 export class InviteAlreadyExistsError extends Error {}
 
-// ── Read ──────────────────────────────────────────────────────────────────────
+// ── Accept (called from better-auth onSignIn hook in lib/auth.ts) ─────────────
 
-export async function dbGetPendingInvites() {
-  return prisma.pendingInvite.findMany({
-    include: { creator: { select: { name: true } } },
-    orderBy: { createdAt: 'desc' },
-  });
+export async function dbAcceptPendingInvite(email: string, userId: string) {
+  const invite = await prisma.pendingInvite.findUnique({ where: { email } });
+  if (!invite) return; // no invite — user keeps default WAITLISTED role
+
+  if (invite.expiresAt && invite.expiresAt < new Date()) {
+    await prisma.pendingInvite.delete({ where: { email } });
+    return; // queda WAITLISTED
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        role: invite.role,
+        permissionExpiresAt: invite.expiresAt,
+      },
+    }),
+    prisma.pendingInvite.delete({ where: { email } }),
+  ]);
 }
 
-export type PendingInvite = Awaited<
-  ReturnType<typeof dbGetPendingInvites>
->[number];
-
 // ── Create ────────────────────────────────────────────────────────────────────
-// TODO: Fix TOCTOU ISSUE with transaction
+
 export async function dbCreateInvite(data: InviteInput, createdBy: string) {
   // Block if a live account already exists for this email
   const existing = await prisma.user.findUnique({
@@ -44,32 +54,21 @@ export async function dbCreateInvite(data: InviteInput, createdBy: string) {
     },
   });
 }
+// ── Read ──────────────────────────────────────────────────────────────────────
+
+export async function dbGetPendingInvites() {
+  return prisma.pendingInvite.findMany({
+    include: { creator: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export type PendingInvite = Awaited<
+  ReturnType<typeof dbGetPendingInvites>
+>[number];
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
 export async function dbDeleteInvite(id: string) {
   await prisma.pendingInvite.delete({ where: { id } });
-}
-
-// ── Accept (called from better-auth onSignIn hook in lib/auth.ts) ─────────────
-
-export async function dbAcceptPendingInvite(email: string, userId: string) {
-  const invite = await prisma.pendingInvite.findUnique({ where: { email } });
-  if (!invite) return; // no invite — user keeps default WAITLISTED role
-
-  if (invite.expiresAt && invite.expiresAt < new Date()) {
-    await prisma.pendingInvite.delete({ where: { email } });
-    return; // queda WAITLISTED
-  }
-
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: {
-        role: invite.role,
-        permissionExpiresAt: invite.expiresAt,
-      },
-    }),
-    prisma.pendingInvite.delete({ where: { email } }),
-  ]);
 }

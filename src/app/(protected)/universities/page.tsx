@@ -7,8 +7,12 @@ import {
 } from '@/components/ui/card';
 import { dbGetUniversities } from '@/features/universities/db';
 import { UniversitiesClientTable } from '@/features/universities/components/universities-client-table';
+import { requirePermission } from '@/lib/authz';
 
 export default async function UniversitiesPage() {
+  const { can } = await requirePermission('read:university');
+  const canCreate = can['write:university'];
+
   const universities = await dbGetUniversities();
 
   return (
@@ -20,7 +24,7 @@ export default async function UniversitiesPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <UniversitiesClientTable data={universities} />
+        <UniversitiesClientTable data={universities} canCreate={canCreate} />
       </CardContent>
     </Card>
   );

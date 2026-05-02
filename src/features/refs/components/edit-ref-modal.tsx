@@ -64,7 +64,7 @@ export function EditRefModal({
   const submissionKeyRef = useRef(0);
   const handledKeyRef = useRef(0);
 
-  const [state, dispatch, isPending] = useActionState<RefActionState, FormData>(
+  const [state, dispatch, isPending] = useActionState<RefActionState, RefInput>(
     boundAction,
     null
   );
@@ -114,10 +114,7 @@ export function EditRefModal({
   }, [state, open, onOpenChange]);
 
   function onSubmit(data: RefInput) {
-    const fd = new FormData();
-    fd.set('value', data.value);
-    fd.set('color', data.color);
-    startTransition(() => dispatch(fd));
+    startTransition(() => dispatch(data));
   }
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
