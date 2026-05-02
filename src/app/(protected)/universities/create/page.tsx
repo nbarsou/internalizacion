@@ -3,8 +3,11 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { dbGetAllRefs } from '@/features/refs/db';
 import { CreateUniversityForm } from '@/features/universities/components/create-university-form';
+import { requirePermission } from '@/lib/authz';
 
 export default async function CreateUniversityPage() {
+  await requirePermission('write:university');
+
   const refs = await dbGetAllRefs();
 
   return (
