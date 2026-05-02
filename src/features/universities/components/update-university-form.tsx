@@ -1,6 +1,7 @@
 'use client';
 
 import { startTransition, useActionState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,29 +46,33 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
 } from '@/components/ui/card';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fieldId = (field: UniversityFields) =>
   `edit-university-${field}` as const;
 const errorId = (field: UniversityFields) =>
   `edit-university-${field}-error` as const;
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 interface UpdateUniversityFormProps {
   university: UniversityDTO;
   refs: AllRefs;
-  onCancel: () => void;
 }
 
-export function UpdateUniversityAction({
+export function UpdateUniversityForm({
   university,
   refs,
-  onCancel,
 }: UpdateUniversityFormProps) {
+  const router = useRouter();
+
   const boundAction = useMemo(
     () => updateUniversityAction.bind(null, university.slug),
     [university.slug]
@@ -78,7 +83,6 @@ export function UpdateUniversityAction({
     UniversityInput
   >(boundAction, null);
 
-  // 1. Memoize the initial values so they don't recreate on every render!
   const defaultFormValues = useMemo<UniversityInput>(
     () => ({
       name: university.name,
@@ -105,7 +109,6 @@ export function UpdateUniversityAction({
   } = useForm<UniversityInput>({
     resolver: zodResolver(univeristySchema),
     mode: 'onBlur',
-    // 2. Pass the memoized values here
     defaultValues: defaultFormValues,
   });
 
@@ -117,10 +120,10 @@ export function UpdateUniversityAction({
         break;
       case 'success':
         toast.success(state.message);
-        onCancel(); // Close form/modal on success
+        router.push(`/universities/${university.slug}`);
         break;
     }
-  }, [state, onCancel]);
+  }, [state, router, university.slug]);
 
   function onSubmit(data: UniversityInput) {
     startTransition(() => dispatch(data));
@@ -128,7 +131,7 @@ export function UpdateUniversityAction({
 
   const serverErrors = state?.type === 'validation' ? state.errors : undefined;
 
-  // Merge Client & Server Errors
+  // Merge client + server errors
   const nameError = clientErrors.name?.message ?? serverErrors?.name?.[0];
   const startError = clientErrors.start?.message ?? serverErrors?.start?.[0];
   const expiresError =
@@ -156,14 +159,17 @@ export function UpdateUniversityAction({
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Nueva Institución</CardTitle>
+          <CardTitle>Editar institución</CardTitle>
           <CardDescription>
-            Registra una nueva universidad o institución partner. Los campos
+            Actualiza los datos de{' '}
+            <span className="font-medium">{university.name}</span>. Los campos
             marcados con * son obligatorios.
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <FieldGroup className="gap-6">
+            {/* ── Identity ── */}
             <FieldSet>
               <Field data-invalid={!!nameError}>
                 <FieldLabel htmlFor={fieldId('name')}>
@@ -186,6 +192,8 @@ export function UpdateUniversityAction({
                   <FieldError id={errorId('name')}>{nameError}</FieldError>
                 )}
               </Field>
+
+              {/* Start date */}
               <Field
                 data-invalid={!!startError}
                 className="flex flex-col gap-2"
@@ -201,52 +209,50 @@ export function UpdateUniversityAction({
                 <Controller
                   control={control}
                   name="start"
-                  render={({ field }) => {
-                    return (
-                      <>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              id={fieldId('start')}
-                              variant="outline"
-                              type="button"
-                              disabled={isPending}
-                              aria-invalid={!!startError}
-                              aria-describedby={
-                                startError ? errorId('start') : undefined
-                              }
-                              data-empty={!field.value}
-                              className={cn(
-                                'w-full justify-start text-left font-normal',
-                                'data-[empty=true]:text-muted-foreground'
-                              )}
-                            >
-                              <CalendarIcon />
-                              {field.value ? (
-                                format(field.value, 'PPP', { locale: es })
-                              ) : (
-                                <span>Elige una fecha de inicio</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={isPending}
-                              required
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id={fieldId('start')}
+                          variant="outline"
+                          type="button"
+                          disabled={isPending}
+                          aria-invalid={!!startError}
+                          aria-describedby={
+                            startError ? errorId('start') : undefined
+                          }
+                          data-empty={!field.value}
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            'data-[empty=true]:text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon />
+                          {field.value ? (
+                            format(field.value, 'PPP', { locale: es })
+                          ) : (
+                            <span>Elige una fecha de inicio</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={isPending}
+                          required
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 />
                 {startError && (
                   <FieldError id={errorId('start')}>{startError}</FieldError>
                 )}
               </Field>
+
+              {/* Expires date */}
               <Field
                 data-invalid={!!expiresError}
                 className="flex flex-col gap-2"
@@ -262,50 +268,45 @@ export function UpdateUniversityAction({
                 <Controller
                   control={control}
                   name="expires"
-                  render={({ field }) => {
-                    return (
-                      <>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              id={fieldId('expires')}
-                              variant="outline"
-                              type="button"
-                              disabled={isPending}
-                              aria-invalid={!!expiresError}
-                              aria-describedby={
-                                expiresError ? errorId('expires') : undefined
-                              }
-                              data-empty={!field.value}
-                              className={cn(
-                                'w-full justify-start text-left font-normal',
-                                'data-[empty=true]:text-muted-foreground'
-                              )}
-                              onChange={(date) => {
-                                // date will be undefined/null when user clears — forward it!
-                                field.onChange(date ?? undefined);
-                              }}
-                            >
-                              <CalendarIcon />
-                              {field.value ? (
-                                format(field.value, 'PPP', { locale: es })
-                              ) : (
-                                <span>Elige una fecha de expiración</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={isPending}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id={fieldId('expires')}
+                          variant="outline"
+                          type="button"
+                          disabled={isPending}
+                          aria-invalid={!!expiresError}
+                          aria-describedby={
+                            expiresError ? errorId('expires') : undefined
+                          }
+                          data-empty={!field.value}
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            'data-[empty=true]:text-muted-foreground'
+                          )}
+                          onChange={(date) => {
+                            field.onChange(date ?? undefined);
+                          }}
+                        >
+                          <CalendarIcon />
+                          {field.value ? (
+                            format(field.value, 'PPP', { locale: es })
+                          ) : (
+                            <span>Elige una fecha de expiración</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={isPending}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 />
                 {expiresError && (
                   <FieldError id={errorId('expires')}>
@@ -313,6 +314,8 @@ export function UpdateUniversityAction({
                   </FieldError>
                 )}
               </Field>
+
+              {/* Is Catholic */}
               <Field orientation="horizontal" data-invalid={!!isCatholicError}>
                 <Controller
                   control={control}
@@ -321,9 +324,7 @@ export function UpdateUniversityAction({
                     <Checkbox
                       id={fieldId('isCatholic')}
                       disabled={isPending}
-                      // Ensure it is strictly a boolean
                       checked={!!field.value}
-                      // Intercept the value and force it to be a strict boolean
                       onCheckedChange={(checked) =>
                         field.onChange(checked === true)
                       }
@@ -336,7 +337,6 @@ export function UpdateUniversityAction({
                 />
                 <FieldContent>
                   <FieldLabel htmlFor={fieldId('isCatholic')}>
-                    {' '}
                     {UNIVERSITY_FIELDS.isCatholic.label}
                     {UNIVERSITY_FIELDS.isCatholic.required && (
                       <span aria-hidden className="text-destructive ml-0.5">
@@ -347,6 +347,8 @@ export function UpdateUniversityAction({
                 </FieldContent>
               </Field>
             </FieldSet>
+
+            {/* ── Web ── */}
             <FieldSet>
               <Field data-invalid={!!webPageError}>
                 <FieldLabel htmlFor={fieldId('webPage')}>
@@ -368,7 +370,9 @@ export function UpdateUniversityAction({
                     setValueAs: (v) => (v === '' ? undefined : v),
                   })}
                 />
-                <FieldDescription>El nombre de la institución</FieldDescription>
+                <FieldDescription>
+                  URL del sitio web de la institución
+                </FieldDescription>
                 {webPageError && (
                   <FieldError id={errorId('webPage')}>
                     {webPageError}
@@ -376,6 +380,8 @@ export function UpdateUniversityAction({
                 )}
               </Field>
             </FieldSet>
+
+            {/* ── Location ── */}
             <FieldSet className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <Field data-invalid={!!regionIdError}>
                 <FieldLabel htmlFor={fieldId('regionId')}>
@@ -389,40 +395,30 @@ export function UpdateUniversityAction({
                 <Controller
                   control={control}
                   name="regionId"
-                  render={({ field }) => {
-                    return (
-                      <Select
-                        disabled={isPending}
-                        // 1. Convert form state (number) to string for the Select component
-                        // Note: using `.toString()` so we don't pass 'undefined' as a literal string
-                        value={field.value?.toString() ?? ''}
-                        // 2. Convert Radix's output (string) back to a number for react-hook-form
-                        onValueChange={(val) => field.onChange(Number(val))}
+                  render={({ field }) => (
+                    <Select
+                      disabled={isPending}
+                      value={field.value?.toString() ?? ''}
+                      onValueChange={(val) => field.onChange(Number(val))}
+                    >
+                      <SelectTrigger
+                        id={fieldId('regionId')}
+                        aria-invalid={!!regionIdError}
+                        aria-describedby={
+                          regionIdError ? errorId('regionId') : undefined
+                        }
                       >
-                        <SelectTrigger
-                          id={fieldId('regionId')}
-                          aria-invalid={!!regionIdError}
-                          aria-describedby={
-                            regionIdError ? errorId('regionId') : undefined
-                          }
-                        >
-                          {/* Note: I also fixed a small typo here for you ('regionIdo' -> 'país') */}
-                          <SelectValue placeholder="Elige una región" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {refs.regions.map((country) => (
-                            // 3. Convert the DB ID (number) to a string for the SelectItem
-                            <SelectItem
-                              key={country.id}
-                              value={country.id.toString()}
-                            >
-                              {country.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  }}
+                        <SelectValue placeholder="Elige una región" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {refs.regions.map((r) => (
+                          <SelectItem key={r.id} value={r.id.toString()}>
+                            {r.value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
                 {regionIdError && (
                   <FieldError id={errorId('regionId')}>
@@ -430,6 +426,7 @@ export function UpdateUniversityAction({
                   </FieldError>
                 )}
               </Field>
+
               <Field data-invalid={!!countryIdError}>
                 <FieldLabel htmlFor={fieldId('countryId')}>
                   {UNIVERSITY_FIELDS.countryId.label}
@@ -442,40 +439,30 @@ export function UpdateUniversityAction({
                 <Controller
                   control={control}
                   name="countryId"
-                  render={({ field }) => {
-                    return (
-                      <Select
-                        disabled={isPending}
-                        // 1. Convert form state (number) to string for the Select component
-                        // Note: using `.toString()` so we don't pass 'undefined' as a literal string
-                        value={field.value?.toString() ?? ''}
-                        // 2. Convert Radix's output (string) back to a number for react-hook-form
-                        onValueChange={(val) => field.onChange(Number(val))}
+                  render={({ field }) => (
+                    <Select
+                      disabled={isPending}
+                      value={field.value?.toString() ?? ''}
+                      onValueChange={(val) => field.onChange(Number(val))}
+                    >
+                      <SelectTrigger
+                        id={fieldId('countryId')}
+                        aria-invalid={!!countryIdError}
+                        aria-describedby={
+                          countryIdError ? errorId('countryId') : undefined
+                        }
                       >
-                        <SelectTrigger
-                          id={fieldId('countryId')}
-                          aria-invalid={!!countryIdError}
-                          aria-describedby={
-                            countryIdError ? errorId('countryId') : undefined
-                          }
-                        >
-                          {/* Note: I also fixed a small typo here for you ('countryIdo' -> 'país') */}
-                          <SelectValue placeholder="Elige un país" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {refs.countries.map((country) => (
-                            // 3. Convert the DB ID (number) to a string for the SelectItem
-                            <SelectItem
-                              key={country.id}
-                              value={country.id.toString()}
-                            >
-                              {country.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  }}
+                        <SelectValue placeholder="Elige un país" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {refs.countries.map((c) => (
+                          <SelectItem key={c.id} value={c.id.toString()}>
+                            {c.value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
                 {countryIdError && (
                   <FieldError id={errorId('countryId')}>
@@ -483,6 +470,7 @@ export function UpdateUniversityAction({
                   </FieldError>
                 )}
               </Field>
+
               <Field data-invalid={!!cityError}>
                 <FieldLabel htmlFor={fieldId('city')}>
                   {UNIVERSITY_FIELDS.city.label}
@@ -506,6 +494,7 @@ export function UpdateUniversityAction({
                   <FieldError id={errorId('city')}>{cityError}</FieldError>
                 )}
               </Field>
+
               <Field data-invalid={!!addressError}>
                 <FieldLabel htmlFor={fieldId('address')}>
                   {UNIVERSITY_FIELDS.address.label}
@@ -534,6 +523,8 @@ export function UpdateUniversityAction({
                 )}
               </Field>
             </FieldSet>
+
+            {/* ── Classification ── */}
             <FieldSet>
               <Field data-invalid={!!institutionTypeIdError}>
                 <FieldLabel htmlFor={fieldId('institutionTypeId')}>
@@ -547,42 +538,32 @@ export function UpdateUniversityAction({
                 <Controller
                   control={control}
                   name="institutionTypeId"
-                  render={({ field }) => {
-                    return (
-                      <Select
-                        disabled={isPending}
-                        // 1. Convert form state (number) to string for the Select component
-                        // Note: using `.toString()` so we don't pass 'undefined' as a literal string
-                        value={field.value?.toString() ?? ''}
-                        // 2. Convert Radix's output (string) back to a number for react-hook-form
-                        onValueChange={(val) => field.onChange(Number(val))}
+                  render={({ field }) => (
+                    <Select
+                      disabled={isPending}
+                      value={field.value?.toString() ?? ''}
+                      onValueChange={(val) => field.onChange(Number(val))}
+                    >
+                      <SelectTrigger
+                        id={fieldId('institutionTypeId')}
+                        aria-invalid={!!institutionTypeIdError}
+                        aria-describedby={
+                          institutionTypeIdError
+                            ? errorId('institutionTypeId')
+                            : undefined
+                        }
                       >
-                        <SelectTrigger
-                          id={fieldId('institutionTypeId')}
-                          aria-invalid={!!institutionTypeIdError}
-                          aria-describedby={
-                            institutionTypeIdError
-                              ? errorId('institutionTypeId')
-                              : undefined
-                          }
-                        >
-                          {/* Note: I also fixed a small typo here for you ('institutionTypeIdo' -> 'país') */}
-                          <SelectValue placeholder="Elige un tipo de institución" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {refs.institutionTypes.map((country) => (
-                            // 3. Convert the DB ID (number) to a string for the SelectItem
-                            <SelectItem
-                              key={country.id}
-                              value={country.id.toString()}
-                            >
-                              {country.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  }}
+                        <SelectValue placeholder="Elige un tipo de institución" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {refs.institutionTypes.map((t) => (
+                          <SelectItem key={t.id} value={t.id.toString()}>
+                            {t.value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
                 {institutionTypeIdError && (
                   <FieldError id={errorId('institutionTypeId')}>
@@ -590,27 +571,23 @@ export function UpdateUniversityAction({
                   </FieldError>
                 )}
               </Field>
-            </FieldSet>
-            <Field data-invalid={!!campusIdError}>
-              <FieldLabel htmlFor={fieldId('campusId')}>
-                {UNIVERSITY_FIELDS.campusId.label}
-                {UNIVERSITY_FIELDS.campusId.required && (
-                  <span aria-hidden className="text-destructive ml-0.5">
-                    *
-                  </span>
-                )}
-              </FieldLabel>
-              <Controller
-                control={control}
-                name="campusId"
-                render={({ field }) => {
-                  return (
+
+              <Field data-invalid={!!campusIdError}>
+                <FieldLabel htmlFor={fieldId('campusId')}>
+                  {UNIVERSITY_FIELDS.campusId.label}
+                  {UNIVERSITY_FIELDS.campusId.required && (
+                    <span aria-hidden className="text-destructive ml-0.5">
+                      *
+                    </span>
+                  )}
+                </FieldLabel>
+                <Controller
+                  control={control}
+                  name="campusId"
+                  render={({ field }) => (
                     <Select
                       disabled={isPending}
-                      // 1. Convert form state (number) to string for the Select component
-                      // Note: using `.toString()` so we don't pass 'undefined' as a literal string
                       value={field.value?.toString() ?? ''}
-                      // 2. Convert Radix's output (string) back to a number for react-hook-form
                       onValueChange={(val) => field.onChange(Number(val))}
                     >
                       <SelectTrigger
@@ -620,50 +597,41 @@ export function UpdateUniversityAction({
                           campusIdError ? errorId('campusId') : undefined
                         }
                       >
-                        {/* Note: I also fixed a small typo here for you ('campusIdo' -> 'país') */}
                         <SelectValue placeholder="Elige un campus" />
                       </SelectTrigger>
                       <SelectContent>
-                        {refs.campuses.map((country) => (
-                          // 3. Convert the DB ID (number) to a string for the SelectItem
-                          <SelectItem
-                            key={country.id}
-                            value={country.id.toString()}
-                          >
-                            {country.value}
+                        {refs.campuses.map((c) => (
+                          <SelectItem key={c.id} value={c.id.toString()}>
+                            {c.value}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  );
-                }}
-              />
-              {campusIdError && (
-                <FieldError id={errorId('campusId')}>
-                  {campusIdError}
-                </FieldError>
-              )}
-            </Field>
-            <Field data-invalid={!!utilizationIdError}>
-              <FieldLabel htmlFor={fieldId('utilizationId')}>
-                {UNIVERSITY_FIELDS.utilizationId.label}
-                {UNIVERSITY_FIELDS.utilizationId.required && (
-                  <span aria-hidden className="text-destructive ml-0.5">
-                    *
-                  </span>
+                  )}
+                />
+                {campusIdError && (
+                  <FieldError id={errorId('campusId')}>
+                    {campusIdError}
+                  </FieldError>
                 )}
-              </FieldLabel>
-              <Controller
-                control={control}
-                name="utilizationId"
-                render={({ field }) => {
-                  return (
+              </Field>
+
+              <Field data-invalid={!!utilizationIdError}>
+                <FieldLabel htmlFor={fieldId('utilizationId')}>
+                  {UNIVERSITY_FIELDS.utilizationId.label}
+                  {UNIVERSITY_FIELDS.utilizationId.required && (
+                    <span aria-hidden className="text-destructive ml-0.5">
+                      *
+                    </span>
+                  )}
+                </FieldLabel>
+                <Controller
+                  control={control}
+                  name="utilizationId"
+                  render={({ field }) => (
                     <Select
                       disabled={isPending}
-                      // 1. Convert form state (number) to string for the Select component
-                      // Note: using `.toString()` so we don't pass 'undefined' as a literal string
                       value={field.value?.toString() ?? ''}
-                      // 2. Convert Radix's output (string) back to a number for react-hook-form
                       onValueChange={(val) => field.onChange(Number(val))}
                     >
                       <SelectTrigger
@@ -675,38 +643,34 @@ export function UpdateUniversityAction({
                             : undefined
                         }
                       >
-                        {/* Note: I also fixed a small typo here for you ('utilizationIdo' -> 'país') */}
                         <SelectValue placeholder="Elige un nivel de utilización" />
                       </SelectTrigger>
                       <SelectContent>
-                        {refs.utilizations.map((country) => (
-                          // 3. Convert the DB ID (number) to a string for the SelectItem
-                          <SelectItem
-                            key={country.id}
-                            value={country.id.toString()}
-                          >
-                            {country.value}
+                        {refs.utilizations.map((u) => (
+                          <SelectItem key={u.id} value={u.id.toString()}>
+                            {u.value}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  );
-                }}
-              />
-              {utilizationIdError && (
-                <FieldError id={errorId('utilizationId')}>
-                  {utilizationIdError}
-                </FieldError>
-              )}
-            </Field>
+                  )}
+                />
+                {utilizationIdError && (
+                  <FieldError id={errorId('utilizationId')}>
+                    {utilizationIdError}
+                  </FieldError>
+                )}
+              </Field>
+            </FieldSet>
           </FieldGroup>
         </CardContent>
+
         <CardFooter className="flex items-center justify-end gap-2 border-t pt-4">
           <Button
             type="button"
             variant="ghost"
-            onClick={onCancel}
             disabled={isPending}
+            onClick={() => router.back()}
           >
             Cancelar
           </Button>

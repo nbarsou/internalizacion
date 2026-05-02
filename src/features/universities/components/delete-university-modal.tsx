@@ -134,14 +134,14 @@ function DeleteUniversityContent({
         <AlertDialogCancel
           onClick={onCancel}
           disabled={isPending}
-          className="sm:w-full"
+          className="w-30"
         >
           Cancelar
         </AlertDialogCancel>
 
         <AlertDialogAction
           disabled={isPending}
-          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-full"
+          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-80"
           onClick={(e) => {
             e.preventDefault();
             handleDelete();
