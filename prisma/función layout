@@ -1,0 +1,201 @@
+import * as XLSX from "xlsx";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+export async function exportAgreementsToExcel(ids: string[]) {
+  // =========================
+  // AGREEMENTS
+  // =========================
+  const agreements = await prisma.agreement.findMany({
+    where: {
+      id: { in: ids },
+      deletedAt: null,
+      university: { deletedAt: null },
+    },
+    include: {
+      type: true,
+      university: {
+        include: {
+          campus: true,
+          institutionType: true,
+          region: true,
+          country: true,
+        },
+      },
+      beneficiaries: {
+        include: { beneficiary: true },
+      },
+    },
+  });
+
+  // =========================
+  // HOJA 1: Convenios
+  // =========================
+  const conveniosRows: any[] = [];
+
+  for (const ag of agreements) {
+    const uni = ag.university;
+
+    if (ag.beneficiaries.length === 0) {
+      conveniosRows.push({
+        Nombre_Convenio: uni.name,
+        Cve_Escuela: "",
+        Campus: uni.campus?.name ?? "",
+        Giro: uni.institutionTypeId ?? "",
+        Region: uni.regionId,
+        Pais: uni.countryId,
+        Bloque: "0",
+        Contacto: "",
+      });
+      continue;
+    }
+
+    for (const b of ag.beneficiaries) {
+      conveniosRows.push({
+        Nombre_Convenio: uni.name,
+        Cve_Escuela: b.beneficiary.cve,
+        Campus: uni.campus?.name ?? "",
+        Giro: uni.institutionTypeId ?? "",
+        Region: uni.regionId,
+        Pais: uni.countryId,
+        Bloque: "0",
+        Contacto: "",
+      });
+    }
+  }
+
+  // =========================
+  // HOJA 2: Info
+  // =========================
+  const infoRows = agreements.map((ag) => ({
+    Nombre_Convenio: ag.university.name,
+    RankingQSWU: "",
+    Objetivos: "",
+    Idioma: "",
+    Calificacion: "",
+    Link: "",
+    Comentario: "",
+  }));
+
+  // =========================
+  // HOJA 3: Plazas (UPDATED)
+  // =========================
+  const plazasRows = agreements.map((ag) => ({
+    Nombre_Convenio: ag.university.name,
+    Nivel: "",
+    Tipo_Plaza: ag.type.name, // ✅ NUEVO
+    Plazas: ag.spots ?? "",
+    Fecha_Inicio: formatDate(ag.university.start),
+    Fecha_Final: ag.university.expires
+      ? formatDate(ag.university.expires)
+      : "",
+  }));
+
+  // =========================
+  // HOJA 4: Catálogos
+  // =========================
+  const [
+    regiones,
+    paises,
+    giros,
+    tiposPlaza,
+    beneficiarios,
+  ] = await Promise.all([
+    prisma.refRegion.findMany(),
+    prisma.refCountry.findMany(),
+    prisma.refInstitutionType.findMany(),
+    prisma.refAgreementType.findMany(),
+    prisma.refBeneficiary.findMany(),
+  ]);
+
+  const maxLength = Math.max(
+    regiones.length,
+    paises.length,
+    giros.length,
+    tiposPlaza.length,
+    beneficiarios.length
+  );
+
+  const catalogoRows = [];
+
+  for (let i = 0; i < maxLength; i++) {
+    catalogoRows.push({
+      // A - Región
+      Región: regiones[i]?.name ?? "",
+      // B - ID
+      ID_Region: regiones[i]?.id ?? "",
+
+      // C vacío
+      _c: "",
+
+      // D - País
+      País: paises[i]?.name ?? "",
+      // E - ID
+      ID_Pais: paises[i]?.id ?? "",
+
+      // F vacío
+      _f: "",
+
+      // G - Giro
+      Giro: giros[i]?.name ?? "",
+      // H - ID
+      ID_Giro: giros[i]?.id ?? "",
+
+      // I, J, K, L vacíos
+      _i: "",
+      _j: "",
+      _k: "",
+      _l: "",
+
+      // M - Plaza
+      Plaza: tiposPlaza[i]?.name ?? "",
+      // N - ID
+      ID_Plaza: tiposPlaza[i]?.id ?? "",
+
+      // O vacío
+      _o: "",
+
+      // P - CVE
+      CVE: beneficiarios[i]?.cve ?? "",
+      // Q - Descripción
+      Descripción: beneficiarios[i]?.name ?? "",
+    });
+  }
+
+  // =========================
+  // EXCEL
+  // =========================
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(conveniosRows),
+    "Convenios"
+  );
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(infoRows),
+    "Info"
+  );
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(plazasRows),
+    "Plazas"
+  );
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.json_to_sheet(catalogoRows),
+    "Catálogos"
+  );
+
+  XLSX.writeFile(workbook, "export.xlsx");
+}
+
+// =========================
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
