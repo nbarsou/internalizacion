@@ -69,8 +69,9 @@ import { cn } from '@/lib/utils';
 import {
   buildAgreementColumns,
   AGREEMENT_COLUMN_LABELS,
+  SENSITIVE_COLUMNS,
 } from './agreements-columns';
-import type { AgreementItem } from '@/features/agreements/db';
+import type { AgreementDTO } from '@/features/agreements/db';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,9 @@ function unique(items: (string | null | undefined)[]): string[] {
   return Array.from(new Set(items.filter((x): x is string => !!x))).sort();
 }
 
+// All possible columns in display order. Sensitive ones are simply absent from
+// the built column list when canReadSensitive is false — TanStack Table ignores
+// order entries that don't match any column id.
 const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'university',
   'type',
@@ -134,10 +138,14 @@ function DraggableHeader({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface AgreementsClientTableProps {
-  data: AgreementItem[];
+  data: AgreementDTO[];
+  canReadSensitive: boolean;
 }
 
-export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
+export function AgreementsClientTable({
+  data,
+  canReadSensitive,
+}: AgreementsClientTableProps) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -160,8 +168,8 @@ export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
   );
 
   const columns = React.useMemo(
-    () => buildAgreementColumns(filterOpts),
-    [filterOpts]
+    () => buildAgreementColumns(filterOpts, canReadSensitive),
+    [filterOpts, canReadSensitive]
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -195,9 +203,21 @@ export function AgreementsClientTable({ data }: AgreementsClientTableProps) {
     });
   }
 
+  // Compute the effective default order for the current user so the "reordered"
+  // badge and reset button ignore columns the user can't see anyway.
+  const effectiveDefaultOrder = React.useMemo(
+    () =>
+      DEFAULT_COLUMN_ORDER.filter(
+        (id) => canReadSensitive || !SENSITIVE_COLUMNS.has(id)
+      ),
+    [canReadSensitive]
+  );
+
   const isFiltered = columnFilters.length > 0 || globalFilter.length > 0;
   const isReordered =
-    JSON.stringify(columnOrder) !== JSON.stringify(DEFAULT_COLUMN_ORDER);
+    JSON.stringify(
+      columnOrder.filter((id) => canReadSensitive || !SENSITIVE_COLUMNS.has(id))
+    ) !== JSON.stringify(effectiveDefaultOrder);
   const visibleColIds = table.getVisibleLeafColumns().map((col) => col.id);
 
   return (

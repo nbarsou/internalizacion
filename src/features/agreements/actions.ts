@@ -1,174 +1,133 @@
 'use server';
+import 'server-only';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import { agreementSchema } from './schemas';
-import type { AgreementFormValues } from './schemas';
+import { agreementSchema, AgreementInput } from './schemas';
+import { FormState } from '@/lib/form-utils';
+import { checkPermission } from '@/lib/authz';
+import { z } from 'zod';
+import { slugSchema } from '@/lib/schemas';
+import {
+  validateAgreementRefs,
+  dbCreateAgreement,
+  ReferenceValidationError,
+  dbUpdateAgreement,
+  dbDeleteAgreement,
+} from './db';
 
-// ── Result type ───────────────────────────────────────────────────────────────
-
-export type AgreementActionResult =
-  | { success: true }
-  | {
-      success: false;
-      fieldErrors: Partial<Record<string, string>>;
-      formError?: string;
-    };
-
-function collectErrors(
-  err: import('zod/v4').ZodError
-): Partial<Record<string, string>> {
-  const out: Partial<Record<string, string>> = {};
-  for (const issue of err.issues) {
-    const key = (issue.path[0] as string | undefined) ?? 'root';
-    if (!out[key]) out[key] = issue.message;
-  }
-  return out;
-}
+export type AgreementActionResult = FormState<keyof AgreementInput>;
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
-export async function actionCreateAgreement(
+export async function createAgreementAction(
   universityId: string,
   universitySlug: string,
-  rawData: unknown
+  prevState: AgreementActionResult,
+  data: AgreementInput
 ): Promise<AgreementActionResult> {
-  const parsed = agreementSchema.safeParse(rawData);
-  if (!parsed.success)
-    return { success: false, fieldErrors: collectErrors(parsed.error) };
+  const authz = await checkPermission('write:agreement');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
 
-  const data: AgreementFormValues = parsed.data;
+  // Re-validate on the server — never trust client data even with RHF
+  const result = agreementSchema.safeParse(data);
+  if (!result.success)
+    return {
+      type: 'validation',
+      errors: z.flattenError(result.error).fieldErrors,
+    };
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const agreement = await tx.agreement.create({
-        data: {
-          universityId,
-          typeId: data.typeId,
-          statusId: data.statusId,
-          spots: data.spots,
-          link_convenio: data.link_convenio || null,
-        },
-      });
-
-      if (data.attrIds.length > 0) {
-        await tx.agreementAttr.createMany({
-          data: data.attrIds.map((attrId) => ({
-            agreementId: agreement.id,
-            attrId,
-          })),
-        });
-      }
-      if (data.beneficiaryIds.length > 0) {
-        await tx.agreementBeneficiary.createMany({
-          data: data.beneficiaryIds.map((beneficiaryId) => ({
-            agreementId: agreement.id,
-            beneficiaryId,
-          })),
-        });
-      }
-    });
-
+    await validateAgreementRefs(result.data);
+    await dbCreateAgreement(universityId, result.data);
+    revalidatePath('/agreements');
     revalidatePath(`/universities/${universitySlug}`);
-  } catch {
+    return { type: 'success', message: 'Convenio creado con éxito.' };
+  } catch (error) {
+    console.error('[createAgreementAction]:', error);
+    if (error instanceof ReferenceValidationError)
+      return { type: 'error', message: error.message };
     return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al guardar. Intenta de nuevo.',
+      type: 'error',
+      message: 'Algo salió mal al crear el convenio. Inténtalo de nuevo.',
     };
   }
-
-  redirect(`/universities/${universitySlug}`);
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
 
-export async function actionUpdateAgreement(
-  id: string,
-  universityId: string,
+export async function updateAgreementAction(
+  agreementId: string,
   universitySlug: string,
-  rawData: unknown
+  prevState: AgreementActionResult,
+  data: AgreementInput
 ): Promise<AgreementActionResult> {
-  const parsed = agreementSchema.safeParse(rawData);
-  if (!parsed.success)
-    return { success: false, fieldErrors: collectErrors(parsed.error) };
+  const authz = await checkPermission('write:agreement');
+  if (!authz.authorized)
+    return {
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
+    };
 
-  const data: AgreementFormValues = parsed.data;
+  const result = agreementSchema.safeParse(data);
+  if (!result.success)
+    return {
+      type: 'validation',
+      errors: z.flattenError(result.error).fieldErrors,
+    };
 
   try {
-    await prisma.$transaction(async (tx) => {
-      // Verify ownership before update (IDOR guard)
-      const existing = await tx.agreement.findFirstOrThrow({
-        where: { id, universityId, deletedAt: null },
-      });
+    await validateAgreementRefs(result.data);
+    await dbUpdateAgreement(agreementId, result.data);
 
-      await tx.agreement.update({
-        where: { id: existing.id },
-        data: {
-          typeId: data.typeId,
-          statusId: data.statusId,
-          spots: data.spots,
-          link_convenio: data.link_convenio || null,
-        },
-      });
-
-      // Replace junction tables atomically
-      await tx.agreementAttr.deleteMany({ where: { agreementId: id } });
-      if (data.attrIds.length > 0) {
-        await tx.agreementAttr.createMany({
-          data: data.attrIds.map((attrId) => ({ agreementId: id, attrId })),
-        });
-      }
-
-      await tx.agreementBeneficiary.deleteMany({ where: { agreementId: id } });
-      if (data.beneficiaryIds.length > 0) {
-        await tx.agreementBeneficiary.createMany({
-          data: data.beneficiaryIds.map((beneficiaryId) => ({
-            agreementId: id,
-            beneficiaryId,
-          })),
-        });
-      }
-    });
-
+    revalidatePath('/agreements');
     revalidatePath(`/universities/${universitySlug}`);
-  } catch {
+    return { type: 'success', message: 'Convenio actualizado con éxito.' };
+  } catch (error) {
+    console.error('[updateAgreementAction]:', error);
+    if (error instanceof ReferenceValidationError)
+      return { type: 'error', message: error.message };
     return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al guardar. Intenta de nuevo.',
+      type: 'error',
+      message: 'Algo salió mal al actualizar el convenio. Inténtalo de nuevo.',
     };
   }
-
-  redirect(`/universities/${universitySlug}`);
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
-export async function actionDeleteAgreement(
-  id: string,
-  universityId: string
-): Promise<AgreementActionResult> {
-  try {
-    const result = await prisma.agreement.updateMany({
-      where: { id, universityId, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
-    if (result.count === 0) {
-      return {
-        success: false,
-        fieldErrors: {},
-        formError: 'Convenio no encontrado.',
-      };
-    }
-    revalidatePath(`/universities`);
-    return { success: true };
-  } catch {
+const deleteArgsSchema = z.object({
+  id: z.uuid(),
+  slug: slugSchema,
+});
+
+export async function deleteAgreementAction(
+  agreementId: string,
+  universitySlug: string
+): Promise<FormState> {
+  const authz = await checkPermission('write:agreement');
+  if (!authz.authorized)
     return {
-      success: false,
-      fieldErrors: {},
-      formError: 'Error al eliminar. Intenta de nuevo.',
+      type: 'error',
+      message: 'No tienes permiso para realizar esta acción.',
     };
+
+  const parsed = deleteArgsSchema.safeParse({
+    id: agreementId,
+    slug: universitySlug,
+  });
+  if (!parsed.success)
+    return { type: 'error', message: '¡Datos inválidos para borrar!' };
+
+  try {
+    await dbDeleteAgreement(parsed.data.id);
+    revalidatePath('/agreements');
+    revalidatePath(`/universities/${universitySlug}`);
+    return { type: 'success', message: '¡Convenio borrado!' };
+  } catch {
+    return { type: 'error', message: 'Error al eliminar. Intenta de nuevo.' };
   }
 }

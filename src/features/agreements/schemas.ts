@@ -1,20 +1,25 @@
-import { z } from 'zod/v4';
+import { z } from 'zod';
+
+const refId = z.number('Por favor elige un valor.').int().min(0);
+
+export const AGREEMENT_FIELDS = {
+  typeId: { required: true, label: 'Tipo de Convenio' },
+  statusId: { required: true, label: 'Estado del Convenio' },
+  spots: { required: false, label: 'Plazas' },
+  link: { required: false, label: 'Link' },
+  attrIds: { required: false, label: 'Attributos' },
+  beneficiaryIds: { required: false, label: 'Beneficiarios' },
+} as const;
+
+export type AgreementFields = keyof typeof AGREEMENT_FIELDS;
 
 export const agreementSchema = z.object({
-  typeId: z.number({ error: 'Selecciona un tipo de convenio' }).int().min(1),
-  statusId: z.number({ error: 'Selecciona un estado' }).int().min(1),
-  spots: z.number().int().min(0).nullable().default(null),
-  link_convenio: z
-    .string()
-    .trim()
-    .max(500)
-    .refine(
-      (v) => v === '' || /^https?:\/\/.+/.test(v),
-      'Debe ser una URL válida'
-    )
-    .default(''),
-  attrIds: z.array(z.number().int()).default([]),
-  beneficiaryIds: z.array(z.number().int()).default([]),
+  typeId: refId,
+  statusId: refId,
+  spots: z.number().int().min(0).optional(),
+  link_convenio: z.url('Ingresa una URL valida.').optional(),
+  attrIds: z.array(refId).optional(),
+  beneficiaryIds: z.array(refId).optional(),
 });
 
-export type AgreementFormValues = z.infer<typeof agreementSchema>;
+export type AgreementInput = z.infer<typeof agreementSchema>;

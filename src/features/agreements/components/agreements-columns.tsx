@@ -27,7 +27,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
-import type { AgreementItem } from '@/features/agreements/db';
+import { AgreementDTO } from '../db';
 
 // ── Column label map ──────────────────────────────────────────────────────────
 
@@ -42,13 +42,15 @@ export const AGREEMENT_COLUMN_LABELS: Record<string, string> = {
   link: 'Enlace',
 };
 
+export const SENSITIVE_COLUMNS = new Set(['link']);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function truncate(str: string, max: number) {
   return str.length > max ? str.slice(0, max) + '…' : str;
 }
 
-// ── Header components (same pattern as universities) ─────────────────────────
+// ── Header components ─────────────────────────────────────────────────────────
 
 type FilterOption = string | { label: string; value: string };
 
@@ -57,7 +59,7 @@ function FilterableHeader({
   label,
   options,
 }: {
-  column: Column<AgreementItem, unknown>;
+  column: Column<AgreementDTO, unknown>;
   label: string;
   options: FilterOption[];
 }) {
@@ -150,7 +152,7 @@ function SortableHeader({
   column,
   label,
 }: {
-  column: Column<AgreementItem, unknown>;
+  column: Column<AgreementDTO, unknown>;
   label: string;
 }) {
   const sorted = column.getIsSorted();
@@ -193,13 +195,16 @@ function StatusBadge({ value }: { value: string | undefined }) {
 
 // ── Column builder ────────────────────────────────────────────────────────────
 
-export function buildAgreementColumns(opts: {
-  types: string[];
-  statuses: string[];
-  beneficiaries: string[];
-  attrs: string[];
-}): ColumnDef<AgreementItem>[] {
-  return [
+export function buildAgreementColumns(
+  opts: {
+    types: string[];
+    statuses: string[];
+    beneficiaries: string[];
+    attrs: string[];
+  },
+  canReadSensitive: boolean
+): ColumnDef<AgreementDTO>[] {
+  const allColumns: ColumnDef<AgreementDTO>[] = [
     // University name + country + city folded underneath
     {
       id: 'university',
@@ -360,7 +365,7 @@ export function buildAgreementColumns(opts: {
         value.some((v) => row.original.attrs.some((a) => a.attr.value === v)),
     },
 
-    // Link to document
+    // Link to document — sensitive
     {
       id: 'link',
       accessorFn: (row) => row.link_convenio ?? '',
@@ -384,4 +389,7 @@ export function buildAgreementColumns(opts: {
       },
     },
   ];
+
+  if (canReadSensitive) return allColumns;
+  return allColumns.filter((col) => !SENSITIVE_COLUMNS.has(col.id!));
 }
