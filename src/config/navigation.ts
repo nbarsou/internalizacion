@@ -22,34 +22,34 @@ export const NAV_LINKS: NavLink[] = [
     icon: LayoutDashboard,
     title: 'Panel de Indicadores',
     subtitle: 'Vista general de internacionalización Anáhuac',
-    permission: 'university:view', // Basic permission everyone has
+    permission: 'read:university', // Basic permission everyone has
   },
   {
     href: '/agreements',
     icon: FileSpreadsheet,
     title: 'Convenios',
     subtitle: 'Gestión de acuerdos internacionales',
-    permission: 'agreement:view',
+    permission: 'read:agreement',
   },
   {
     href: '/universities',
     icon: Building2,
     title: 'Universidades',
     subtitle: 'Catálogo de instituciones aliadas',
-    permission: 'university:view',
+    permission: 'read:agreement',
   },
   {
     href: '/users',
     icon: Users,
     title: 'Usuarios',
     subtitle: 'Administración de usuarios y roles',
-    permission: 'user:view', // 👈 Only Admins and Editors will see this!
+    permission: 'read:user',
   },
   {
     href: '/settings',
     icon: Settings,
     title: 'Configuración',
     subtitle: 'Administración de referencias',
-    permission: 'user:view', // 👈 Only Admins and Editors will see this!
+    permission: 'read:refs', // 👈 Only Admins and Editors will see this!
   },
 ];
