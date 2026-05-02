@@ -9,20 +9,23 @@ interface UserRowProps {
   user: UsersDTO;
   actingUserId: string;
   actingIsSuperuser: boolean;
+  canWrite: boolean;
 }
 
 export function UserRow({
   user,
+  canWrite,
   actingUserId,
   actingIsSuperuser,
 }: UserRowProps) {
   const isSelf = user.id === actingUserId;
 
-  // Tienes user:change_role (eres ADMIN o superuser).
+  // Tienes write:user (eres ADMIN o superuser).
   // No puedes modificarte a ti mismo.
   // No puedes modificar a un superuser.
   // Si no eres superuser, no puedes modificar a otro ADMIN.
   const canModify =
+    canWrite &&
     !isSelf &&
     !user.isSuperuser &&
     (actingIsSuperuser || user.role !== 'ADMIN');

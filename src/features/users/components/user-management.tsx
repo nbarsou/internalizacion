@@ -8,17 +8,16 @@ import {
 } from '@/components/ui/card';
 import { UsersDTO } from '../db';
 import { UserRow } from './user-row';
-import type { Permission } from '@/lib/permissions';
-
 interface UserManagementProps {
   users: UsersDTO[];
-  can: Record<Permission, boolean>;
+  canWrite: boolean;
   actingUserId: string;
   actingIsSuperuser: boolean;
 }
 
 export function UserManagement({
   users,
+  canWrite,
   actingUserId,
   actingIsSuperuser,
 }: UserManagementProps) {
@@ -34,6 +33,7 @@ export function UserManagement({
         <div className="divide-y rounded-lg border">
           {users.map((user) => (
             <UserRow
+              canWrite={canWrite}
               key={user.id}
               user={user}
               actingUserId={actingUserId}
