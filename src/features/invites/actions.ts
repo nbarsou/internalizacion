@@ -2,40 +2,27 @@
 
 import { revalidatePath } from 'next/cache';
 import { checkPermission } from '@/lib/authz';
-import { InviteFields, inviteSchema } from './schemas';
+import { InviteInput, inviteSchema } from './schemas';
 import { dbCreateInvite, dbDeleteInvite, InviteAlreadyExistsError } from './db';
 import { FormState } from '@/lib/form-utils';
 import z from 'zod';
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
-export type InviteActionState = FormState<InviteFields>;
+export type InviteActionState = FormState<keyof InviteInput>;
 
 export async function createInviteAction(
   prevState: InviteActionState,
-  formData: FormData
+  data: InviteInput
 ): Promise<InviteActionState> {
-  const authz = await checkPermission('user:edit');
+  const authz = await checkPermission('write:user');
   if (!authz.authorized)
     return {
       type: 'error',
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  const get = (key: InviteFields) => formData.get(key);
-
-  const expiresAtStr = get('expiresAt');
-
-  const rawData = {
-    email: get('email'),
-    role: get('role'),
-    expiresAt:
-      typeof expiresAtStr === 'string' && expiresAtStr
-        ? new Date(expiresAtStr)
-        : undefined,
-  };
-
-  const validatedFields = inviteSchema.safeParse(rawData);
+  const validatedFields = inviteSchema.safeParse(data);
   if (!validatedFields.success) {
     console.log(validatedFields.error);
     return {
@@ -66,7 +53,7 @@ const deleteInviteArgsSchema = z.object({
 });
 
 export async function deleteInviteAction(inviteId: string): Promise<FormState> {
-  const authz = await checkPermission('user:edit');
+  const authz = await checkPermission('write:user');
   if (!authz.authorized)
     return {
       type: 'error',

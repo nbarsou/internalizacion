@@ -21,6 +21,7 @@ export default async function AdminPage() {
 
       <section aria-labelledby="invite-heading" className="space-y-3">
         <InviteManagement
+          canWrite={can['write:user']}
           pendingInvites={pendingInvites}
           actingIsSuperuser={actingIsSuperuser}
         />
@@ -30,7 +31,7 @@ export default async function AdminPage() {
       <section aria-labelledby="members-heading" className="space-y-3">
         <UserManagement
           users={users}
-          can={can}
+          canWrite={can['write:user']}
           actingIsSuperuser={actingIsSuperuser}
           actingUserId={actingUserId}
         />
