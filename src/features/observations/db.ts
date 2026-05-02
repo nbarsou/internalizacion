@@ -1,46 +1,72 @@
 import 'server-only';
 
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@/generated/prisma/client';
 import { ObservationOrigin, ObservationLevel } from '@/generated/prisma/client';
+import { ObservationInput } from './schemas';
 
-// ── Shared include shape ──────────────────────────────────────────────────────
+// ── Custom error classes ──────────────────────────────────────────────────────
 
-const observationInclude = {
-  // If you ever want to show *where* an observation came from in a global feed:
-  university: { select: { id: true, name: true } },
-  agreement: { select: { id: true, type: true } },
-} satisfies Prisma.ObservationInclude;
+export class UniversityNotFoundError extends Error {}
+export class ObservationNotFoundError extends Error {}
 
-export type ObservationItem = Prisma.ObservationGetPayload<{
-  include: typeof observationInclude;
-}>;
+// ── Create ────────────────────────────────────────────────────────────────
 
-// ── Read functions ────────────────────────────────────────────────────────────
+export async function dbCreateObservation(
+  slug: string,
+  data: ObservationInput
+) {
+  const university = await prisma.university.findUnique({
+    where: { slug },
+  });
 
-// For a global system health / ETL report page
-export async function dbGetAllObservations(level?: ObservationLevel) {
-  return prisma.observation.findMany({
-    where: level ? { level } : undefined,
-    include: observationInclude,
-    orderBy: { createdAt: 'desc' },
+  if (!university) throw new UniversityNotFoundError();
+
+  return await prisma.observation.create({
+    data: {
+      text: data.text,
+      universityId: university.id,
+      level: ObservationLevel.INFO,
+      origin: ObservationOrigin.MANUAL,
+    },
   });
 }
 
-// For the University Detail page
+// ── Read ────────────────────────────────────────────────────────────────
+
 export async function dbGetObservationsByUniversity(universityId: string) {
   return prisma.observation.findMany({
     where: { universityId },
-    include: observationInclude, // ← add this
+    include: {
+      university: { select: { id: true, name: true } },
+      agreement: { select: { id: true, type: true } },
+    },
     orderBy: { createdAt: 'desc' },
   });
 }
 
-// For the Agreement Detail page
-export async function dbGetObservationsByAgreement(agreementId: string) {
-  return prisma.observation.findMany({
-    where: { agreementId },
-    include: observationInclude, // ← add this
-    orderBy: { createdAt: 'desc' },
+export type ObservationDTO = Awaited<
+  ReturnType<typeof dbGetObservationsByUniversity>
+>[number];
+
+// ── Update ────────────────────────────────────────────────────────────────
+
+export async function dbUpdateObservation(
+  observationId: string,
+  data: ObservationInput
+) {
+  const result = await prisma.observation.updateMany({
+    where: { id: observationId },
+    data: { text: data.text },
   });
+  if (result.count === 0) throw new ObservationNotFoundError();
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────
+
+export async function dbDeleteObservation(observationId: string) {
+  const result = await prisma.observation.deleteMany({
+    where: { id: observationId },
+  });
+
+  if (result.count === 0) throw new ObservationNotFoundError();
 }
