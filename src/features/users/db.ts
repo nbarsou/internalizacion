@@ -4,9 +4,56 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, Role } from '@/generated/prisma/client';
 import { canAssignRole, canModifyUser } from '@/lib/permissions';
 
+// ── Custom error classes ──────────────────────────────────────────────────────
+
 export class UserNotFoundError extends Error {}
 export class CannotModifySelfError extends Error {}
 export class InsufficientRoleError extends Error {}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+async function loadActorAndTarget(
+  tx: Prisma.TransactionClient,
+  actingUserId: string,
+  targetUserId: string
+) {
+  const [acting, target] = await Promise.all([
+    tx.user.findUnique({
+      where: { id: actingUserId },
+      select: { role: true, isSuperuser: true },
+    }),
+    tx.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true, isSuperuser: true },
+    }),
+  ]);
+  if (!acting || !target) throw new UserNotFoundError();
+  return { acting, target };
+}
+
+// ── Expiry check (lazy, called in verifySession) ──────────────────────────────
+
+export async function dbCheckAndExpireUser(userId: string): Promise<Role> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, permissionExpiresAt: true, isSuperuser: true },
+  });
+  if (!user) return 'WAITLISTED';
+  if (user.isSuperuser) return user.role as Role; // ← agregar
+
+  // If expiry is set and has passed, downgrade to WAITLISTED
+  if (user.permissionExpiresAt && user.permissionExpiresAt < new Date()) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'WAITLISTED', permissionExpiresAt: null },
+    });
+    return 'WAITLISTED';
+  }
+
+  return user.role as Role;
+}
+
+// ── Read ────────────────────────────────────────────────────────────────--
 
 export async function dbGetUsers() {
   return prisma.user.findMany({
@@ -40,24 +87,7 @@ export async function dbGetUserById(id: string) {
 }
 export type UserDTO = Awaited<ReturnType<typeof dbGetUserById>>;
 
-async function loadActorAndTarget(
-  tx: Prisma.TransactionClient,
-  actingUserId: string,
-  targetUserId: string
-) {
-  const [acting, target] = await Promise.all([
-    tx.user.findUnique({
-      where: { id: actingUserId },
-      select: { role: true, isSuperuser: true },
-    }),
-    tx.user.findUnique({
-      where: { id: targetUserId },
-      select: { role: true, isSuperuser: true },
-    }),
-  ]);
-  if (!acting || !target) throw new UserNotFoundError();
-  return { acting, target };
-}
+// ── Update ────────────────────────────────────────────────────────────────
 
 export async function dbUpdateUserRole(
   actingUserId: string,
@@ -84,10 +114,11 @@ export async function dbUpdateUserRole(
       );
     }
 
-    await tx.user.update({
+    const result = await tx.user.updateMany({
       where: { id: targetUserId },
       data: { role: newRole },
     });
+    if (result.count === 0) throw new UserNotFoundError();
   });
 }
 
@@ -109,32 +140,10 @@ export async function dbUpdateUserExpirationDate(
       throw new InsufficientRoleError();
     }
 
-    await tx.user.update({
+    const result = await tx.user.updateMany({
       where: { id: targetUserId },
       data: { permissionExpiresAt: newDate },
     });
+    if (result.count === 0) throw new UserNotFoundError();
   });
-}
-
-// ── Expiry check (lazy, called in verifySession) ──────────────────────────────
-
-// TODO: Add a parseRole function
-export async function dbCheckAndExpireUser(userId: string): Promise<Role> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true, permissionExpiresAt: true, isSuperuser: true },
-  });
-  if (!user) return 'WAITLISTED';
-  if (user.isSuperuser) return user.role as Role; // ← agregar
-
-  // If expiry is set and has passed, downgrade to WAITLISTED
-  if (user.permissionExpiresAt && user.permissionExpiresAt < new Date()) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { role: 'WAITLISTED', permissionExpiresAt: null },
-    });
-    return 'WAITLISTED';
-  }
-
-  return user.role as Role;
 }
