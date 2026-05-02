@@ -14,10 +14,10 @@ const valueSchema = z
  * Empty string is the "let the server pick" signal — never `undefined`,
  * since FormData entries are always strings.
  */
-const colorSchema = z.union([
-  z.literal(''),
-  z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color hex inválido (ej. #22c55e)'),
-]);
+const colorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, 'Color hex inválido (ej. #22c55e)')
+  .optional();
 
 export const refInputSchema = z.object({
   value: valueSchema,
@@ -50,7 +50,7 @@ export const TABLE_COLOR_OFFSETS: Record<RefTableName, number> = {
   refAgreementType: 60,
   refAttr: 75,
   refStatus: 90,
-  refUtilization: 105, // Loops safely if it exceeds the 100-color palette
+  refUtilization: 105,
 };
 
 export const beneficiaryInputSchema = z.object({
@@ -59,7 +59,7 @@ export const beneficiaryInputSchema = z.object({
     .min(1, 'Ingresa una clave')
     .max(2, 'Máximo dos caracteres')
     .trim()
-    .toUpperCase(), // Best practice for alphanumeric codes
+    .toUpperCase(),
   value: valueSchema,
   color: colorSchema,
 });

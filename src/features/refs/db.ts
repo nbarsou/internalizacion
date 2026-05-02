@@ -3,11 +3,13 @@ import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { RefTableName } from './schemas';
 
-// ── Error classes ────────────────────────────────────────────────────────────
+// ── Custom error classes ──────────────────────────────────────────────────────
 
 export class RefDuplicateError extends Error {}
 export class RefInUseError extends Error {}
 export class RefNotFoundError extends Error {}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
  * Wraps a Prisma call and converts known error codes into typed errors.
@@ -28,7 +30,24 @@ export async function withRefErrors<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-// ── Fetchers with usage counts ────────────────────────────────────────────────
+export async function dbGetUsedColors(
+  table: RefTableName
+): Promise<(string | null)[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = await (prisma[table] as any).findMany({
+    select: { color: true },
+  });
+  return rows.map((r: { color: string | null }) => r.color);
+}
+
+// Fetches in-use colors specifically for the beneficiary palette resolver
+export async function dbGetBeneficiaryUsedColors(): Promise<(string | null)[]> {
+  const records = await prisma.refBeneficiary.findMany({
+    where: { color: { not: null } },
+    select: { color: true },
+  });
+  return records.map((r) => r.color);
+}
 
 export async function dbGetRegions() {
   return prisma.refRegion.findMany({
@@ -130,26 +149,6 @@ export async function dbGetAllRefs() {
 
 export type AllRefs = Awaited<ReturnType<typeof dbGetAllRefs>>;
 
-// ── Used colors (any ref table) ──────────────────────────────────────────────
-
-export async function dbGetUsedColors(
-  table: RefTableName
-): Promise<(string | null)[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = await (prisma[table] as any).findMany({
-    select: { color: true },
-  });
-  return rows.map((r: { color: string | null }) => r.color);
-}
-
-export async function dbCreateBeneficiary(data: {
-  cve: string;
-  value: string;
-  color: string | null;
-}) {
-  return prisma.refBeneficiary.create({ data });
-}
-
 export async function dbUpdateBeneficiary(
   id: number,
   data: { cve?: string; value?: string; color?: string | null }
@@ -160,17 +159,16 @@ export async function dbUpdateBeneficiary(
   });
 }
 
+export async function dbCreateBeneficiary(data: {
+  cve: string;
+  value: string;
+  color: string | null;
+}) {
+  return prisma.refBeneficiary.create({ data });
+}
+
 export async function dbDeleteBeneficiary(id: number) {
   return prisma.refBeneficiary.delete({
     where: { id },
   });
-}
-
-// Fetches in-use colors specifically for the beneficiary palette resolver
-export async function dbGetBeneficiaryUsedColors(): Promise<(string | null)[]> {
-  const records = await prisma.refBeneficiary.findMany({
-    where: { color: { not: null } },
-    select: { color: true },
-  });
-  return records.map((r) => r.color);
 }

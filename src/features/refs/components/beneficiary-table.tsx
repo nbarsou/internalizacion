@@ -38,19 +38,21 @@ type ModalState =
   | { type: 'edit'; item: BeneficiaryRow }
   | { type: 'delete'; item: BeneficiaryRow };
 
-interface BeneficiaryAccordionSectionProps {
+interface BeneficiaryTableProps {
   value: string;
   title: string;
   rows: BeneficiaryRow[];
   countKey: string;
+  canWrite: boolean;
 }
 
-export function BeneficiaryAccordionSection({
+export function BeneficiaryTable({
   value,
   title,
   rows,
   countKey,
-}: BeneficiaryAccordionSectionProps) {
+  canWrite,
+}: BeneficiaryTableProps) {
   const [modal, setModal] = useState<ModalState>({ type: 'closed' });
   const close = () => setModal({ type: 'closed' });
 
@@ -96,10 +98,12 @@ export function BeneficiaryAccordionSection({
             <p className="text-muted-foreground text-sm">
               Aún no hay registros en {title.toLowerCase()}.
             </p>
-            <Button onClick={() => setModal({ type: 'create' })} size="sm">
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Agregar {title}
-            </Button>
+            {canWrite && (
+              <Button onClick={() => setModal({ type: 'create' })} size="sm">
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Agregar {title}
+              </Button>
+            )}
           </div>
         ) : (
           <>
@@ -118,7 +122,11 @@ export function BeneficiaryAccordionSection({
                     <TableHead className="w-24">CVE</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead className="w-20 text-right">Usos</TableHead>
-                    <TableHead className="w-24 text-right">Acciones</TableHead>
+                    {canWrite && (
+                      <TableHead className="w-24 text-right">
+                        Acciones
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -166,37 +174,39 @@ export function BeneficiaryAccordionSection({
                           </Badge>
                         </TableCell>
 
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() =>
-                                setModal({ type: 'edit', item: row })
-                              }
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                              <span className="sr-only">
-                                Editar {row.value}
-                              </span>
-                            </Button>
+                        {canWrite && (
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setModal({ type: 'edit', item: row })
+                                }
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                                <span className="sr-only">
+                                  Editar {row.value}
+                                </span>
+                              </Button>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive h-8 w-8"
-                              onClick={() =>
-                                setModal({ type: 'delete', item: row })
-                              }
-                            >
-                              <Trash2Icon className="h-4 w-4" />
-                              <span className="sr-only">
-                                Eliminar {row.value}
-                              </span>
-                            </Button>
-                          </div>
-                        </TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive h-8 w-8"
+                                onClick={() =>
+                                  setModal({ type: 'delete', item: row })
+                                }
+                              >
+                                <Trash2Icon className="h-4 w-4" />
+                                <span className="sr-only">
+                                  Eliminar {row.value}
+                                </span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}

@@ -52,7 +52,7 @@ export function CreateBeneficiaryModal({
 
   const [state, dispatch, isPending] = useActionState<
     BeneficiaryActionState,
-    FormData
+    BeneficiaryInput
   >(actionCreateBeneficiary, null);
 
   const {
@@ -89,11 +89,7 @@ export function CreateBeneficiaryModal({
   }, [state, open, onOpenChange]);
 
   function onSubmit(data: BeneficiaryInput) {
-    const fd = new FormData();
-    fd.set('cve', data.cve);
-    fd.set('value', data.value);
-    fd.set('color', data.color);
-    startTransition(() => dispatch(fd));
+    startTransition(() => dispatch(data));
   }
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
