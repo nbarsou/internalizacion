@@ -39,6 +39,7 @@ import {
   ChevronsRight,
   RotateCcw,
   GripVertical,
+  Download,
 } from 'lucide-react';
 import {
   Table,
@@ -54,6 +55,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -71,6 +73,7 @@ import {
   AGREEMENT_COLUMN_LABELS,
   SENSITIVE_COLUMNS,
 } from './agreements-columns';
+import { exportTableToExcel } from '@/lib/export-to-excel';
 import type { AgreementDTO } from '@/features/agreements/db';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -79,9 +82,6 @@ function unique(items: (string | null | undefined)[]): string[] {
   return Array.from(new Set(items.filter((x): x is string => !!x))).sort();
 }
 
-// All possible columns in display order. Sensitive ones are simply absent from
-// the built column list when canReadSensitive is false — TanStack Table ignores
-// order entries that don't match any column id.
 const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'university',
   'type',
@@ -203,8 +203,6 @@ export function AgreementsClientTable({
     });
   }
 
-  // Compute the effective default order for the current user so the "reordered"
-  // badge and reset button ignore columns the user can't see anyway.
   const effectiveDefaultOrder = React.useMemo(
     () =>
       DEFAULT_COLUMN_ORDER.filter(
@@ -250,56 +248,85 @@ export function AgreementsClientTable({
           )}
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                'h-8 gap-1.5',
-                isReordered && 'border-orange-300 text-orange-600'
-              )}
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              Columnas
-              {isReordered && (
-                <span className="ml-1 rounded bg-orange-100 px-1 text-[10px] text-orange-600">
-                  reordenado
-                </span>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-45">
-            <div className="flex items-center justify-between px-2 py-1.5">
-              <DropdownMenuLabel className="p-0 text-xs">
-                Mostrar columnas
-              </DropdownMenuLabel>
-              {isReordered && (
-                <button
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px]"
-                  onClick={() => setColumnOrder(DEFAULT_COLUMN_ORDER)}
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Restaurar
-                </button>
-              )}
-            </div>
-            <DropdownMenuSeparator />
-            {table
-              .getAllColumns()
-              .filter((col) => col.getCanHide())
-              .map((col) => (
-                <DropdownMenuCheckboxItem
-                  key={col.id}
-                  checked={col.getIsVisible()}
-                  onCheckedChange={(v) => col.toggleVisibility(!!v)}
-                  className="text-sm"
-                >
-                  {AGREEMENT_COLUMN_LABELS[col.id] ?? col.id}
-                </DropdownMenuCheckboxItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          {/* Export dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Exportar</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={() =>
+                  exportTableToExcel(table, 'convenios', 'Convenios')
+                }
+              >
+                Exportar tabla
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  window.location.href = '/api/export/agreements';
+                }}
+              >
+                Exportar para SUAS
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Column visibility */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  'h-8 gap-1.5',
+                  isReordered && 'border-orange-300 text-orange-600'
+                )}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Columnas
+                {isReordered && (
+                  <span className="ml-1 rounded bg-orange-100 px-1 text-[10px] text-orange-600">
+                    reordenado
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-45">
+              <div className="flex items-center justify-between px-2 py-1.5">
+                <DropdownMenuLabel className="p-0 text-xs">
+                  Mostrar columnas
+                </DropdownMenuLabel>
+                {isReordered && (
+                  <button
+                    className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px]"
+                    onClick={() => setColumnOrder(DEFAULT_COLUMN_ORDER)}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Restaurar
+                  </button>
+                )}
+              </div>
+              <DropdownMenuSeparator />
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(v) => col.toggleVisibility(!!v)}
+                    className="text-sm"
+                  >
+                    {AGREEMENT_COLUMN_LABELS[col.id] ?? col.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* ── Table with drag-to-reorder headers ── */}

@@ -1,9 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { PlusIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { PlusIcon, PencilIcon, Trash2Icon, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -55,12 +61,33 @@ export function AgreementsClient({
             {agreements.length === 1 ? 'convenio' : 'convenios'}
           </p>
         </div>
-        {canWrite && (
-          <Button size="sm" onClick={() => setModal({ type: 'create' })}>
-            <PlusIcon className="mr-1.5 h-4 w-4" />
-            Nuevo convenios
-          </Button>
-        )}
+
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Exportar</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={() => {
+                  window.location.href = `/api/export/agreements?universityId=${universityId}`;
+                }}
+              >
+                Exportar para SUAS
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {canWrite && (
+            <Button size="sm" onClick={() => setModal({ type: 'create' })}>
+              <PlusIcon className="mr-1.5 h-4 w-4" />
+              Nuevo convenio
+            </Button>
+          )}
+        </div>
       </div>
 
       {agreements.length === 0 ? (

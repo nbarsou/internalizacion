@@ -182,3 +182,56 @@ export async function dbDeleteAgreement(id: string) {
     where: { id },
   });
 }
+
+/**
+ * Fetches all active agreements with the full university shape needed for the
+ * structured multi-sheet export. Intentionally separate from dbGetAgreements
+ * to avoid bloating the table query with fields it doesn't render.
+ */
+export async function dbGetAgreementsForExport(universityId?: string) {
+  return prisma.agreement.findMany({
+    where: {
+      deletedAt: null,
+      university: { deletedAt: null },
+      ...(universityId ? { universityId } : {}),
+    },
+    include: {
+      type: true,
+      university: {
+        include: {
+          campus: true,
+          institutionType: true,
+          region: true,
+          country: true,
+        },
+      },
+      beneficiaries: {
+        include: { beneficiary: true },
+      },
+    },
+    orderBy: [{ university: { name: 'asc' } }, { createdAt: 'desc' }],
+  });
+}
+
+export type AgreementExportRow = Awaited<
+  ReturnType<typeof dbGetAgreementsForExport>
+>[number];
+
+/**
+ * Fetches all reference catalogs needed for the Catálogos sheet.
+ * Run in parallel alongside the agreements query.
+ */
+export async function dbGetExportCatalogs() {
+  const [regiones, paises, giros, tiposPlaza, beneficiarios] =
+    await Promise.all([
+      prisma.refRegion.findMany({ orderBy: { value: 'asc' } }),
+      prisma.refCountry.findMany({ orderBy: { value: 'asc' } }),
+      prisma.refInstitutionType.findMany({ orderBy: { value: 'asc' } }),
+      prisma.refAgreementType.findMany({ orderBy: { value: 'asc' } }),
+      prisma.refBeneficiary.findMany({ orderBy: { value: 'asc' } }),
+    ]);
+
+  return { regiones, paises, giros, tiposPlaza, beneficiarios };
+}
+
+export type ExportCatalogs = Awaited<ReturnType<typeof dbGetExportCatalogs>>;
