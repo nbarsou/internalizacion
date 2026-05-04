@@ -276,6 +276,9 @@ export function buildAgreementColumns(
     {
       id: 'spots',
       accessorFn: (row) => row.spots ?? -1,
+      meta: {
+        exportValue: (row: AgreementDTO) => row.spots ?? undefined,
+      },
       header: ({ column }) => <SortableHeader column={column} label="Plazas" />,
       cell: ({ row }) => (
         <span className="text-sm tabular-nums">

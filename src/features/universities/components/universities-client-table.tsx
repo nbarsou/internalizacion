@@ -40,6 +40,7 @@ import {
   Plus,
   GripVertical,
   RotateCcw,
+  Download,
 } from 'lucide-react';
 import {
   Table,
@@ -68,6 +69,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { buildColumns, COLUMN_LABELS } from './columns';
+import { exportTableToExcel } from '@/lib/export-to-excel';
 import type { UniversityDTO } from '@/features/universities/db';
 import Link from 'next/link';
 
@@ -124,7 +126,6 @@ function DraggableHeader({
       className="whitespace-nowrap"
     >
       <div className="flex items-center gap-1">
-        {/* Drag handle */}
         <button
           {...attributes}
           {...listeners}
@@ -208,7 +209,6 @@ export function UniversitiesClientTable({
     initialState: { pagination: { pageSize: 20 } },
   });
 
-  // dnd-kit sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -230,9 +230,6 @@ export function UniversitiesClientTable({
   const isReordered =
     JSON.stringify(columnOrder) !== JSON.stringify(DEFAULT_COLUMN_ORDER);
 
-  // Stable ID for DndContext — prevents SSR/client aria-describedby mismatch
-
-  // Only the visible column IDs in current order, for SortableContext
   const visibleColIds = table.getVisibleLeafColumns().map((col) => col.id);
 
   return (
@@ -267,6 +264,19 @@ export function UniversitiesClientTable({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Export to Excel */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() =>
+              exportTableToExcel(table, 'instituciones', 'Instituciones')
+            }
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+
           {/* Column visibility */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -335,7 +345,6 @@ export function UniversitiesClientTable({
       </div>
 
       {/* ── Table with drag-to-reorder headers ── */}
-      {/* id is stable — prevents dnd-kit aria-describedby hydration mismatch */}
       <DndContext
         id="universities-table-dnd"
         sensors={sensors}
