@@ -39,7 +39,6 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'write:observation',
     'read:contact',
     'write:contact',
-    'read:sensitive',
   ],
   [Role.VIEWER]: [
     'read:university',

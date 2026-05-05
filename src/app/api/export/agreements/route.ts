@@ -6,7 +6,7 @@
  *
  * Protected: requires read:agreement permission.
  * The Link column in the Info sheet is only populated for users with
- * read:sensitive (ADMIN and EDITOR roles).
+ * write:agreement (ADMIN and EDITOR roles).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -25,11 +25,11 @@ export async function GET(req: NextRequest) {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const { role } = await verifySession();
 
-  if (!hasPermission(role, 'read:agreement')) {
+  if (!hasPermission(role, 'write:agreement')) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const canReadSensitive = hasPermission(role, 'read:sensitive');
+  const canWriteAgreement = hasPermission(role, 'write:agreement');
 
   // ── Optional university scope ────────────────────────────────────────────────
   const universityId =
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   const arrayBuffer = buildAgreementsExportWorkbook(
     agreements,
     catalogs,
-    canReadSensitive
+    canWriteAgreement
   );
 
   const blob = new Blob([arrayBuffer], { type: XLSX_MIME });

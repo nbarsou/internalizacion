@@ -12,7 +12,7 @@ import { requirePermission } from '@/lib/authz';
 export default async function AgreementsPage() {
   const { can } = await requirePermission('read:agreement'); // or whatever gate you use
   const raw = await dbGetAgreements();
-  const agreements = redactAgreements(raw, can['read:sensitive']);
+  const agreements = redactAgreements(raw, can['write:agreement']);
 
   return (
     <Card className="h-full">
@@ -25,7 +25,7 @@ export default async function AgreementsPage() {
       <CardContent>
         <AgreementsClientTable
           data={agreements}
-          canReadSensitive={can['read:sensitive']}
+          canWrite={can['write:agreement']}
         />
       </CardContent>
     </Card>

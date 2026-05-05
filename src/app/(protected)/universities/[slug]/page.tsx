@@ -42,7 +42,7 @@ export default async function UniversityDetailPage({ params }: Props) {
     dbGetAllRefs(),
   ]);
 
-  const agreements = redactAgreements(rawAgreements, can['read:sensitive']);
+  const agreements = redactAgreements(rawAgreements, can['write:agreement']);
   const universityObs = observations.filter((o) => o.agreementId === null);
 
   // Build location string: "Ciudad, País — Región"
@@ -181,7 +181,7 @@ export default async function UniversityDetailPage({ params }: Props) {
             agreements={agreements}
             refs={refs}
             canWrite={can['write:agreement']}
-            canReadSensitive={can['read:sensitive']}
+            canReadSensitive={can['write:agreement']}
           />
         </CardContent>
       </Card>

@@ -14,7 +14,6 @@ export async function DashboardMap() {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-lg font-medium">Mapa de Convenios</h3>
       <UniversityMapLoader data={mapPoints} />
     </div>
   );
