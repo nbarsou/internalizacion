@@ -37,9 +37,9 @@ function buildConveniosSheet(agreements: AgreementExportRow[]) {
     const base = {
       Nombre_Convenio: uni.name,
       Campus: uni.campus?.value ?? '',
-      Giro: uni.institutionType?.value ?? '',
-      Region: uni.region?.value ?? '',
-      Pais: uni.country?.value ?? '',
+      Giro: uni.institutionTypeId ?? '', 
+      Region: uni.regionId,              
+      Pais: uni.countryId,
       Bloque: '0',
       Contacto: '',
     };
