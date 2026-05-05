@@ -265,18 +265,19 @@ export function UniversitiesClientTable({
 
         <div className="flex items-center gap-2">
           {/* Export to Excel */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5"
-            onClick={() =>
-              exportTableToExcel(table, 'instituciones', 'Instituciones')
-            }
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Exportar</span>
-          </Button>
-
+          {canCreate && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() =>
+                exportTableToExcel(table, 'instituciones', 'Instituciones')
+              }
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          )}
           {/* Column visibility */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

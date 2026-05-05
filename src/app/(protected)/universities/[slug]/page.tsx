@@ -181,7 +181,6 @@ export default async function UniversityDetailPage({ params }: Props) {
             agreements={agreements}
             refs={refs}
             canWrite={can['write:agreement']}
-            canReadSensitive={can['write:agreement']}
           />
         </CardContent>
       </Card>

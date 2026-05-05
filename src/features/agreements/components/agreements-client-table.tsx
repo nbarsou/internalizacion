@@ -250,31 +250,32 @@ export function AgreementsClientTable({
 
         <div className="flex items-center gap-2">
           {/* Export dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                <Download className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Exportar</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={() =>
-                  exportTableToExcel(table, 'convenios', 'Convenios')
-                }
-              >
-                Exportar tabla
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  window.location.href = '/api/export/agreements';
-                }}
-              >
-                Exportar para SUAS
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+          {canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() =>
+                    exportTableToExcel(table, 'convenios', 'Convenios')
+                  }
+                >
+                  Exportar tabla
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    window.location.href = '/api/export/agreements';
+                  }}
+                >
+                  Exportar para SUAS
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {/* Column visibility */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

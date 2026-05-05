@@ -36,7 +36,6 @@ interface AgreementsClientProps {
   agreements: AgreementsByUniversityDTO[];
   refs: AllRefs;
   canWrite: boolean;
-  canReadSensitive: boolean;
 }
 
 export function AgreementsClient({
@@ -45,7 +44,6 @@ export function AgreementsClient({
   agreements,
   refs,
   canWrite,
-  canReadSensitive,
 }: AgreementsClientProps) {
   const [modal, setModal] = useState<ModalState>({ type: 'closed' });
 
@@ -62,32 +60,32 @@ export function AgreementsClient({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                <Download className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Exportar</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={() => {
-                  window.location.href = `/api/export/agreements?universityId=${universityId}`;
-                }}
-              >
-                Exportar para SUAS
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {canWrite && (
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => {
+                    window.location.href = `/api/export/agreements?universityId=${universityId}`;
+                  }}
+                >
+                  Exportar para SUAS
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {canWrite && (
             <Button size="sm" onClick={() => setModal({ type: 'create' })}>
               <PlusIcon className="mr-1.5 h-4 w-4" />
               Nuevo convenio
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {agreements.length === 0 ? (
@@ -103,9 +101,11 @@ export function AgreementsClient({
                 <TableHead>Estado</TableHead>
                 <TableHead>Plazas</TableHead>
                 <TableHead>Beneficiarios</TableHead>
-                {canReadSensitive && <TableHead>Enlace</TableHead>}
                 {canWrite && (
-                  <TableHead className="w-25 text-right">Acciones</TableHead>
+                  <>
+                    <TableHead>Enlace</TableHead>
+                    <TableHead className="w-25 text-right">Acciones</TableHead>
+                  </>
                 )}
               </TableRow>
             </TableHeader>
@@ -139,7 +139,7 @@ export function AgreementsClient({
                       ))}
                     </div>
                   </TableCell>
-                  {canReadSensitive && (
+                  {canWrite && (
                     <TableCell>
                       {agreement.link_convenio ? (
                         <a href={agreement.link_convenio}>Ver</a>

@@ -37,9 +37,9 @@ function buildConveniosSheet(agreements: AgreementExportRow[]) {
     const base = {
       Nombre_Convenio: uni.name,
       Campus: uni.campus?.value ?? '',
-      Giro: uni.institutionType?.value ?? '',
-      Region: uni.region?.value ?? '',
-      Pais: uni.country?.value ?? '',
+      Giro: uni.institutionTypeId ?? '',
+      Region: uni.regionId,
+      Pais: uni.countryId,
       Bloque: '0',
       Contacto: '',
     };
@@ -71,18 +71,13 @@ function buildConveniosSheet(agreements: AgreementExportRow[]) {
  * One row per agreement. Several columns are left blank — they are filled
  * manually after export (ranking, objectives, language, etc.).
  */
-function buildInfoSheet(
-  agreements: AgreementExportRow[],
-  canReadSensitive: boolean
-) {
+function buildInfoSheet(agreements: AgreementExportRow[]) {
   const rows = agreements.map((ag) => ({
     Nombre_Convenio: ag.university.name,
     RankingQSWU: '',
     Objetivos: '',
     Idioma: '',
     Calificacion: '',
-    Link: canReadSensitive ? (ag.link_convenio ?? '') : '',
-    Comentario: '',
   }));
 
   return XLSX.utils.json_to_sheet(rows);
@@ -156,8 +151,7 @@ function buildCatalogosSheet(catalogs: ExportCatalogs) {
 
 export function buildAgreementsExportWorkbook(
   agreements: AgreementExportRow[],
-  catalogs: ExportCatalogs,
-  canWriteAgreement: boolean
+  catalogs: ExportCatalogs
 ): ArrayBuffer {
   const wb = XLSX.utils.book_new();
 
@@ -166,11 +160,7 @@ export function buildAgreementsExportWorkbook(
     buildConveniosSheet(agreements),
     'Convenios'
   );
-  XLSX.utils.book_append_sheet(
-    wb,
-    buildInfoSheet(agreements, canWriteAgreement),
-    'Info'
-  );
+  XLSX.utils.book_append_sheet(wb, buildInfoSheet(agreements), 'Info');
   XLSX.utils.book_append_sheet(wb, buildPlazasSheet(agreements), 'Plazas');
   XLSX.utils.book_append_sheet(wb, buildCatalogosSheet(catalogs), 'Catálogos');
 

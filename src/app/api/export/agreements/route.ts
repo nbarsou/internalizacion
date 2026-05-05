@@ -29,8 +29,6 @@ export async function GET(req: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const canWriteAgreement = hasPermission(role, 'write:agreement');
-
   // ── Optional university scope ────────────────────────────────────────────────
   const universityId =
     req.nextUrl.searchParams.get('universityId') ?? undefined;
@@ -44,11 +42,7 @@ export async function GET(req: NextRequest) {
   // ── Transform ───────────────────────────────────────────────────────────────
   // buildAgreementsExportWorkbook returns a clean ArrayBuffer (via .slice()),
   // which Blob always accepts as BlobPart without type errors.
-  const arrayBuffer = buildAgreementsExportWorkbook(
-    agreements,
-    catalogs,
-    canWriteAgreement
-  );
+  const arrayBuffer = buildAgreementsExportWorkbook(agreements, catalogs);
 
   const blob = new Blob([arrayBuffer], { type: XLSX_MIME });
 
