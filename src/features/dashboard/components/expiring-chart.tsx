@@ -1,23 +1,30 @@
+// features/dashboard/components/expiring-chart.tsx
 import { DonutChart } from '@/components/charts/donut-chart';
 import { type ChartConfig } from '@/components/ui/chart';
 import { getExpiringAgreements } from '../queries';
 
-// CONFIG: Hardcoded Traffic Light Colors
+// Ranges are synthetic (computed in the query, not ref-table rows) so colors
+// are intentionally hardcoded here. Do not migrate to buildChartConfig.
+// Keys match the `range` field returned by getExpiringAgreements exactly.
 const EXPIRY_CONFIG = {
   count: {
-    label: 'Convenios',
+    label: 'Universidades',
   },
-  '1_month': {
-    label: '1 Mes',
-    color: '#ef4444', // Red-500
+  expired: {
+    label: 'Ya Vencidos',
+    color: '#ef4444', // red-500    — requires action now
   },
-  '3_months': {
-    label: '3 Meses',
-    color: '#eab308', // Yellow-500
+  within_1y: {
+    label: 'Vence en 1 Año',
+    color: '#f97316', // orange-500 — watch closely
   },
-  '6_months': {
-    label: '6 Meses',
-    color: '#22c55e', // Green-500
+  within_5y: {
+    label: 'Vence en 5 Años',
+    color: '#22c55e', // green-500  — healthy
+  },
+  indefinite: {
+    label: 'Sin Fecha',
+    color: '#71717a', // zinc-500   — no expiration set
   },
 } satisfies ChartConfig;
 
@@ -26,18 +33,18 @@ export async function ExpiringAgreementsChart() {
 
   return (
     <DonutChart
-      title="Vencimiento de Convenios"
-      description="Proyección de vencimientos próximos"
+      title="Estado de Vigencia"
+      description="Universidades por estado de vencimiento de convenio marco"
       footer={{
-        text: 'Requieren atención inmediata',
-        trend: 'down', // Red arrow indicating risk
+        text: 'Universidades con convenio vencido o próximo a vencer',
+        trend: 'down',
       }}
       data={data}
       config={EXPIRY_CONFIG}
       dataKey="count"
-      nameKey="range" // Matches the 'range' key in ExpiryData
+      nameKey="range"
       centerLabel={{
-        label: 'Por Vencer',
+        label: 'Universidades',
         valueKey: 'count',
       }}
     />

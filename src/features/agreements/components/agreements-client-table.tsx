@@ -139,12 +139,12 @@ function DraggableHeader({
 
 interface AgreementsClientTableProps {
   data: AgreementDTO[];
-  canReadSensitive: boolean;
+  canWrite: boolean;
 }
 
 export function AgreementsClientTable({
   data,
-  canReadSensitive,
+  canWrite,
 }: AgreementsClientTableProps) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -168,8 +168,8 @@ export function AgreementsClientTable({
   );
 
   const columns = React.useMemo(
-    () => buildAgreementColumns(filterOpts, canReadSensitive),
-    [filterOpts, canReadSensitive]
+    () => buildAgreementColumns(filterOpts, canWrite),
+    [filterOpts, canWrite]
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -206,15 +206,15 @@ export function AgreementsClientTable({
   const effectiveDefaultOrder = React.useMemo(
     () =>
       DEFAULT_COLUMN_ORDER.filter(
-        (id) => canReadSensitive || !SENSITIVE_COLUMNS.has(id)
+        (id) => canWrite || !SENSITIVE_COLUMNS.has(id)
       ),
-    [canReadSensitive]
+    [canWrite]
   );
 
   const isFiltered = columnFilters.length > 0 || globalFilter.length > 0;
   const isReordered =
     JSON.stringify(
-      columnOrder.filter((id) => canReadSensitive || !SENSITIVE_COLUMNS.has(id))
+      columnOrder.filter((id) => canWrite || !SENSITIVE_COLUMNS.has(id))
     ) !== JSON.stringify(effectiveDefaultOrder);
   const visibleColIds = table.getVisibleLeafColumns().map((col) => col.id);
 

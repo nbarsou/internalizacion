@@ -146,9 +146,9 @@ export type AgreementDTO = Awaited<ReturnType<typeof dbGetAgreementById>>;
 
 export function redactAgreements<T extends { link_convenio: string | null }>(
   agreements: T[],
-  canReadSensitive: boolean
+  canWrite: boolean
 ): T[] {
-  if (canReadSensitive) return agreements;
+  if (canWrite) return agreements;
   return agreements.map((a) => ({ ...a, link_convenio: null }));
 }
 

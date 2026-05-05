@@ -11,7 +11,7 @@
  *   3. Plazas     — one row per agreement (spots + dates)
  *   4. Catálogos  — all ref tables side-by-side
  */
-
+import 'server-only';
 import * as XLSX from 'xlsx';
 import type { AgreementExportRow, ExportCatalogs } from './db';
 
@@ -157,7 +157,7 @@ function buildCatalogosSheet(catalogs: ExportCatalogs) {
 export function buildAgreementsExportWorkbook(
   agreements: AgreementExportRow[],
   catalogs: ExportCatalogs,
-  canReadSensitive: boolean
+  canWriteAgreement: boolean
 ): ArrayBuffer {
   const wb = XLSX.utils.book_new();
 
@@ -168,7 +168,7 @@ export function buildAgreementsExportWorkbook(
   );
   XLSX.utils.book_append_sheet(
     wb,
-    buildInfoSheet(agreements, canReadSensitive),
+    buildInfoSheet(agreements, canWriteAgreement),
     'Info'
   );
   XLSX.utils.book_append_sheet(wb, buildPlazasSheet(agreements), 'Plazas');
