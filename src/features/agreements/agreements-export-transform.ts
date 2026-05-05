@@ -96,7 +96,7 @@ function buildPlazasSheet(agreements: AgreementExportRow[]) {
   const rows = agreements.map((ag) => ({
     Nombre_Convenio: ag.university.name,
     Nivel: '',
-    Tipo_Plaza: ag.type?.typeId ?? '',
+    Tipo_Plaza: ag.type?.id ?? '',
     Plazas: ag.spots ?? '',
     Fecha_Inicio: fmt(ag.university.start),
     Fecha_Final: fmt(ag.university.expires),
