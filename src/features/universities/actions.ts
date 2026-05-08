@@ -32,7 +32,6 @@ export async function createUniversityAction(
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  // 1. Zod validation
   const validatedFields = univeristySchema.safeParse(data);
   if (!validatedFields.success)
     return {
@@ -42,10 +41,7 @@ export async function createUniversityAction(
 
   let university: Awaited<ReturnType<typeof dbCreateUniversity>>;
   try {
-    // 2. FK reference validation
     await validateRefs(validatedFields.data);
-
-    // 3. Create
     university = await dbCreateUniversity(validatedFields.data);
 
     createAuditLog({
@@ -53,16 +49,16 @@ export async function createUniversityAction(
       action: 'create',
       entity: 'university',
       entityId: university.slug,
-      after: validatedFields.data, // ← add this
+      after: validatedFields.data,
     });
 
     revalidatePath('/universities');
   } catch (error) {
-    console.error('[createTournamentAction]:', error);
+    console.error('[createUniversityAction]:', error);
     return {
       type: 'error',
       message:
-        'Algo salió mal al crear el torneo. Por favor, inténtalo de nuevo.',
+        'Algo salió mal al crear la institución. Por favor, inténtalo de nuevo.',
     };
   }
 
@@ -87,12 +83,11 @@ export async function updateUniversityAction(
     };
 
   const validatedFields = univeristySchema.safeParse(data);
-  if (!validatedFields.success) {
+  if (!validatedFields.success)
     return {
       type: 'validation',
       errors: z.flattenError(validatedFields.error).fieldErrors,
     };
-  }
 
   try {
     const before = await dbGetUniversityBySlug(slugParsed.data);
@@ -106,7 +101,6 @@ export async function updateUniversityAction(
       entity: 'university',
       entityId: slugParsed.data,
       before: {
-        // ← only mutable scalar fields
         name: before.name,
         start: before.start,
         expires: before.expires,
@@ -114,6 +108,8 @@ export async function updateUniversityAction(
         web_page: before.web_page,
         city: before.city,
         address: before.address,
+        lat: before.lat,
+        lng: before.lng,
         regionId: before.regionId,
         countryId: before.countryId,
         institutionTypeId: before.institutionTypeId,
@@ -126,7 +122,7 @@ export async function updateUniversityAction(
     revalidatePath('/universities');
     return { type: 'success', message: 'Los cambios quedaron guardados.' };
   } catch (error) {
-    console.error('[createTournamentAction]:', error);
+    console.error('[updateUniversityAction]:', error);
     return {
       type: 'error',
       message:
@@ -137,9 +133,7 @@ export async function updateUniversityAction(
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
-const deleteArgsSchema = z.object({
-  id: z.uuid(),
-});
+const deleteArgsSchema = z.object({ id: z.uuid() });
 
 export async function deleteUniversityAction(
   universityId: string
@@ -151,9 +145,7 @@ export async function deleteUniversityAction(
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  const parsed = deleteArgsSchema.safeParse({
-    id: universityId,
-  });
+  const parsed = deleteArgsSchema.safeParse({ id: universityId });
   if (!parsed.success)
     return { type: 'error', message: '¡Datos inválidos para borrar!' };
 
@@ -167,9 +159,9 @@ export async function deleteUniversityAction(
       entityId: parsed.data.id,
     });
 
-    revalidatePath(`/universities`);
+    revalidatePath('/universities');
   } catch {
     return { type: 'error', message: 'Error al eliminar. Intenta de nuevo.' };
   }
-  redirect(`/universities`);
+  redirect('/universities');
 }
