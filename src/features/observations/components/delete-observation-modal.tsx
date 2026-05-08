@@ -14,12 +14,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { deleteObservationAction } from '../actions';
-import { ObservationDTO } from '../db';
+import { ObservationsDTO } from '../db';
 
 interface DeleteObservationModalProps {
   slug: string;
   /** Null when the modal is closed — never conditionally unmounted */
-  item: ObservationDTO | null;
+  item: ObservationsDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

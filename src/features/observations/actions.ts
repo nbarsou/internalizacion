@@ -7,12 +7,14 @@ import { z } from 'zod';
 import {
   dbCreateObservation,
   dbDeleteObservation,
+  dbGetObservationById,
   dbUpdateObservation,
   ObservationNotFoundError,
   UniversityNotFoundError,
 } from './db';
 import { revalidatePath } from 'next/cache';
 import { slugSchema } from '@/lib/schemas';
+import { createAuditLog } from '@/lib/audit';
 
 export type ObservationActionState = FormState<keyof ObservationInput>;
 
@@ -37,7 +39,16 @@ export async function createObservationAction(
     };
 
   try {
-    await dbCreateObservation(slug, validatedFields.data);
+    const observation = await dbCreateObservation(slug, validatedFields.data);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'create',
+      entity: 'observation',
+      entityId: observation.id,
+      after: validatedFields.data, // ← add this
+    });
+
     revalidatePath(`/universities/${slug}`);
     return { type: 'success', message: 'Observación creada!' };
   } catch (error) {
@@ -71,7 +82,17 @@ export async function updateObservationAction(
     };
 
   try {
+    const before = await dbGetObservationById(observationId);
     await dbUpdateObservation(observationId, validatedFields.data);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'update',
+      entity: 'observation',
+      entityId: observationId,
+      before: { text: before.text }, // ← whatever ObservationInput fields exist
+      after: validatedFields.data,
+    });
     revalidatePath(`/universities/${slug}`);
     return { type: 'success', message: 'Observación actualizada!' };
   } catch (error) {
@@ -100,15 +121,28 @@ export async function deleteObservationAction(
     };
   }
 
+  const parsedId = z.uuid().safeParse(observationId);
+  if (!parsedId.success) return { type: 'error', message: 'Algo salio mal!' };
+
   const validatedArgs = deleteObservationArgsSchema.safeParse({
-    id: observationId,
+    id: parsedId.data,
     slug,
   });
   if (!validatedArgs.success)
     return { type: 'error', message: 'Algo salio mal!' };
 
   try {
+    const before = await dbGetObservationById(validatedArgs.data.id);
     await dbDeleteObservation(validatedArgs.data.id);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'delete',
+      entity: 'observation',
+      entityId: parsedId.data,
+      before: { text: before.text },
+    });
+
     revalidatePath(`/universities/${slug}`);
     return { type: 'success', message: 'Observación borrada!' };
   } catch (error) {

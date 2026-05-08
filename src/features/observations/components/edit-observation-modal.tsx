@@ -32,7 +32,7 @@ import {
   ObservationInput,
   ObservationFields,
 } from '../schemas';
-import { ObservationDTO } from '../db';
+import { ObservationsDTO } from '../db';
 
 const fieldId = (field: ObservationFields) => `edit-obs-${field}` as const;
 const errorId = (field: ObservationFields) =>
@@ -41,7 +41,7 @@ const errorId = (field: ObservationFields) =>
 interface EditObservationModalProps {
   slug: string;
   /** Null when the modal is closed — never conditionally unmounted */
-  item: ObservationDTO | null;
+  item: ObservationsDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
