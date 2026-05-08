@@ -72,6 +72,7 @@ import { buildColumns, COLUMN_LABELS } from './columns';
 import { exportTableToExcel } from '@/lib/export-to-excel';
 import type { UniversityDTO } from '@/features/universities/db';
 import Link from 'next/link';
+import { logClientExport } from '@/lib/log-export';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -270,9 +271,14 @@ export function UniversitiesClientTable({
               variant="outline"
               size="sm"
               className="h-8 gap-1.5"
-              onClick={() =>
-                exportTableToExcel(table, 'instituciones', 'Instituciones')
-              }
+              onClick={() => {
+                exportTableToExcel(table, 'instituciones', 'Instituciones');
+                logClientExport(
+                  'university',
+                  table.getCoreRowModel().rows.length,
+                  'instituciones'
+                );
+              }}
             >
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Exportar</span>
