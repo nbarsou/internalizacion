@@ -10,10 +10,12 @@ import { slugSchema } from '@/lib/schemas';
 import {
   validateAgreementRefs,
   dbCreateAgreement,
+  dbGetAgreementById,
   ReferenceValidationError,
   dbUpdateAgreement,
   dbDeleteAgreement,
 } from './db';
+import { createAuditLog } from '@/lib/audit';
 
 export type AgreementActionResult = FormState<keyof AgreementInput>;
 
@@ -32,7 +34,13 @@ export async function createAgreementAction(
       message: 'No tienes permiso para realizar esta acción.',
     };
 
-  // Re-validate on the server — never trust client data even with RHF
+  // Validate universityId and slug — never trust caller args
+  const parsedId = z.uuid().safeParse(universityId);
+  if (!parsedId.success) return { type: 'error', message: 'Algo salio mal!' };
+
+  const parsedSlug = slugSchema.safeParse(universitySlug);
+  if (!parsedSlug.success) return { type: 'error', message: 'Algo salio mal!' };
+
   const result = agreementSchema.safeParse(data);
   if (!result.success)
     return {
@@ -42,9 +50,18 @@ export async function createAgreementAction(
 
   try {
     await validateAgreementRefs(result.data);
-    await dbCreateAgreement(universityId, result.data);
+    const agreement = await dbCreateAgreement(parsedId.data, result.data);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'create',
+      entity: 'agreement',
+      entityId: agreement.id,
+      after: result.data,
+    });
+
     revalidatePath('/agreements');
-    revalidatePath(`/universities/${universitySlug}`);
+    revalidatePath(`/universities/${parsedSlug.data}`);
     return { type: 'success', message: 'Convenio creado con éxito.' };
   } catch (error) {
     console.error('[createAgreementAction]:', error);
@@ -72,6 +89,12 @@ export async function updateAgreementAction(
       message: 'No tienes permiso para realizar esta acción.',
     };
 
+  const parsedId = z.uuid().safeParse(agreementId);
+  if (!parsedId.success) return { type: 'error', message: 'Algo salio mal!' };
+
+  const parsedSlug = slugSchema.safeParse(universitySlug);
+  if (!parsedSlug.success) return { type: 'error', message: 'Algo salio mal!' };
+
   const result = agreementSchema.safeParse(data);
   if (!result.success)
     return {
@@ -80,11 +103,22 @@ export async function updateAgreementAction(
     };
 
   try {
+    const before = await dbGetAgreementById(parsedId.data);
+
     await validateAgreementRefs(result.data);
-    await dbUpdateAgreement(agreementId, result.data);
+    await dbUpdateAgreement(parsedId.data, result.data);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'update',
+      entity: 'agreement',
+      entityId: parsedId.data,
+      before: before,
+      after: result.data,
+    });
 
     revalidatePath('/agreements');
-    revalidatePath(`/universities/${universitySlug}`);
+    revalidatePath(`/universities/${parsedSlug.data}`);
     return { type: 'success', message: 'Convenio actualizado con éxito.' };
   } catch (error) {
     console.error('[updateAgreementAction]:', error);
@@ -123,9 +157,20 @@ export async function deleteAgreementAction(
     return { type: 'error', message: '¡Datos inválidos para borrar!' };
 
   try {
+    const before = await dbGetAgreementById(parsed.data.id);
+
     await dbDeleteAgreement(parsed.data.id);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'delete',
+      entity: 'agreement',
+      entityId: parsed.data.id,
+      before: before,
+    });
+
     revalidatePath('/agreements');
-    revalidatePath(`/universities/${universitySlug}`);
+    revalidatePath(`/universities/${parsed.data.slug}`);
     return { type: 'success', message: '¡Convenio borrado!' };
   } catch {
     return { type: 'error', message: 'Error al eliminar. Intenta de nuevo.' };

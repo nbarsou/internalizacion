@@ -75,6 +75,7 @@ import {
 } from './agreements-columns';
 import { exportTableToExcel } from '@/lib/export-to-excel';
 import type { AgreementDTO } from '@/features/agreements/db';
+import { logClientExport } from '@/lib/log-export';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -260,9 +261,14 @@ export function AgreementsClientTable({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
-                  onClick={() =>
-                    exportTableToExcel(table, 'convenios', 'Convenios')
-                  }
+                  onClick={() => {
+                    exportTableToExcel(table, 'convenios', 'Convenios');
+                    logClientExport(
+                      'agreement',
+                      table.getCoreRowModel().rows.length,
+                      'convenios'
+                    );
+                  }}
                 >
                   Exportar tabla
                 </DropdownMenuItem>
