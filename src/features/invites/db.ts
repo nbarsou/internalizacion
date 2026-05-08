@@ -5,6 +5,7 @@ import { InviteInput } from './schemas';
 // ── Error classes ─────────────────────────────────────────────────────────────
 
 export class InviteAlreadyExistsError extends Error {}
+export class InviteNotFoundError extends Error {}
 
 // ── Accept (called from better-auth onSignIn hook in lib/auth.ts) ─────────────
 
@@ -66,6 +67,12 @@ export async function dbGetPendingInvites() {
 export type PendingInvite = Awaited<
   ReturnType<typeof dbGetPendingInvites>
 >[number];
+
+export async function dbGetInviteById(id: string) {
+  const result = await prisma.pendingInvite.findUnique({ where: { id } });
+  if (!result) throw new InviteNotFoundError();
+  return result;
+}
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 

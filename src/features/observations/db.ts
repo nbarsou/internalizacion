@@ -44,9 +44,17 @@ export async function dbGetObservationsByUniversity(universityId: string) {
   });
 }
 
-export type ObservationDTO = Awaited<
+export type ObservationsDTO = Awaited<
   ReturnType<typeof dbGetObservationsByUniversity>
 >[number];
+
+export async function dbGetObservationById(id: string) {
+  const result = await prisma.observation.findUnique({ where: { id } });
+  if (!result) throw new ObservationNotFoundError();
+  return result;
+}
+
+export type ObservationDTO = Awaited<ReturnType<typeof dbGetObservationById>>;
 
 // ── Update ────────────────────────────────────────────────────────────────
 

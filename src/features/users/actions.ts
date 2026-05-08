@@ -11,8 +11,10 @@ import {
   InsufficientRoleError,
   UserNotFoundError,
   dbUpdateUserExpirationDate,
+  dbGetUserById,
 } from './db';
 import { FormState } from '@/lib/form-utils';
+import { createAuditLog } from '@/lib/audit';
 
 const changeRoleArgsSchema = z.object({
   targetUserId: z.string().min(1),
@@ -41,11 +43,23 @@ export async function changeUserRoleAction(
     };
   }
   try {
+    const before = await dbGetUserById(parsedArgs.data.targetUserId);
+
     await dbUpdateUserRole(
       authz.userId,
       parsedArgs.data.targetUserId,
       parsedArgs.data.role
     );
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'update', // ← was 'create'
+      entity: 'user',
+      entityId: parsedArgs.data.targetUserId,
+      before: { role: before.role }, // ← was missing
+      after: { role: parsedArgs.data.role }, // ← was including targetUserId
+    });
+
     revalidatePath('/users');
     return { type: 'success', message: 'Rol actualizado correctamente.' };
   } catch (e) {
@@ -96,11 +110,23 @@ export async function updateUserExpiryAction(
   }
 
   try {
+    const before = await dbGetUserById(validatedFields.data.targetUserId);
+
     await dbUpdateUserExpirationDate(
       authz.userId,
       validatedFields.data.targetUserId,
       validatedFields.data.newDate ?? null
     );
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'update', // ← was 'create'
+      entity: 'user',
+      entityId: validatedFields.data.targetUserId,
+      before: { permissionExpiresAt: before.permissionExpiresAt }, // ← was missing
+      after: { permissionExpiresAt: validatedFields.data.newDate ?? null },
+    });
+
     revalidatePath('/users');
     return { type: 'success', message: 'Fecha actualizada.' };
   } catch (error) {

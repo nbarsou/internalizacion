@@ -50,6 +50,12 @@ export type ContactsDTO = Awaited<ReturnType<typeof dbGetContactsByUniversity>>;
 // A single item from the array (Single contact)
 export type ContactDTO = ContactsDTO[number];
 
+export async function dbGetContactById(id: string) {
+  const result = await prisma.contact.findUnique({ where: { id } });
+  if (!result) throw new ContactNotFoundError();
+  return result;
+}
+
 // ── Update ────────────────────────────────────────────────────────────────
 
 export async function dbUpdateContact(

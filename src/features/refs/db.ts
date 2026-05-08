@@ -172,3 +172,10 @@ export async function dbDeleteBeneficiary(id: number) {
     where: { id },
   });
 }
+export async function dbGetBeneficiaryById(id: number) {
+  const result = await prisma.refBeneficiary.findUnique({ where: { id } });
+  if (!result) throw new RefNotFoundError();
+  return result;
+}
+
+export type BeneficiaryDTO = Awaited<ReturnType<typeof dbGetBeneficiaryById>>;

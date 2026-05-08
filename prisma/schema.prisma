@@ -83,7 +83,8 @@ model User {
   sessions            Session[]
   pendingInvites      PendingInvite[] // ← add this
 
-  role Role @default(WAITLISTED)
+  role      Role       @default(WAITLISTED)
+  auditLogs AuditLog[]
 
   @@map("user")
 }
@@ -451,4 +452,32 @@ model AgreementBeneficiary {
 
   @@id([agreementId, beneficiaryId])
   @@map("agreement_beneficiary")
+}
+
+// ============================================================
+// AUDIT TABLE
+// ============================================================
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Actor
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // What happened
+  action   String // "create" | "update" | "delete" | "restore"
+  entity   String // "university" | "agreement" | "user" | ...
+  entityId String // the record's id or slug
+
+  // Diff — store only what changed, not the full record
+  before Json?
+  after  Json?
+
+  // Context
+  ipAddress String?
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
 }

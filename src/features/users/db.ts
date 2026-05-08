@@ -80,6 +80,7 @@ export async function dbGetUserById(id: string) {
       email: true,
       role: true,
       isSuperuser: true,
+      permissionExpiresAt: true,
     },
   });
   if (!user) throw new UserNotFoundError();

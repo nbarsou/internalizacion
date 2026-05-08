@@ -16,7 +16,10 @@ const valueSchema = z
  */
 const colorSchema = z
   .string()
-  .regex(/^#[0-9a-fA-F]{6}$/, 'Color hex inválido (ej. #22c55e)')
+  .refine(
+    (val) => val === '' || /^#[0-9a-fA-F]{6}$/.test(val),
+    'Color hex inválido (ej. #22c55e)'
+  )
   .optional();
 
 export const refInputSchema = z.object({

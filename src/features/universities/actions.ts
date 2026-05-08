@@ -10,10 +10,12 @@ import z from 'zod';
 import {
   dbCreateUniversity,
   dbDeleteUniversity,
+  dbGetUniversityBySlug,
   dbUpdateUniversity,
   validateRefs,
 } from './db';
 import { slugSchema } from '@/lib/schemas';
+import { createAuditLog } from '@/lib/audit';
 
 export type UniversityActionResult = FormState<keyof UniversityInput>;
 
@@ -45,6 +47,14 @@ export async function createUniversityAction(
 
     // 3. Create
     university = await dbCreateUniversity(validatedFields.data);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'create',
+      entity: 'university',
+      entityId: university.slug,
+      after: validatedFields.data, // ← add this
+    });
 
     revalidatePath('/universities');
   } catch (error) {
@@ -78,7 +88,6 @@ export async function updateUniversityAction(
 
   const validatedFields = univeristySchema.safeParse(data);
   if (!validatedFields.success) {
-    console.log(validatedFields.error);
     return {
       type: 'validation',
       errors: z.flattenError(validatedFields.error).fieldErrors,
@@ -86,8 +95,33 @@ export async function updateUniversityAction(
   }
 
   try {
+    const before = await dbGetUniversityBySlug(slugParsed.data);
+
     await validateRefs(validatedFields.data);
     await dbUpdateUniversity(slugParsed.data, validatedFields.data);
+
+    createAuditLog({
+      userId: authz.userId,
+      action: 'update',
+      entity: 'university',
+      entityId: slugParsed.data,
+      before: {
+        // ← only mutable scalar fields
+        name: before.name,
+        start: before.start,
+        expires: before.expires,
+        isCatholic: before.isCatholic,
+        web_page: before.web_page,
+        city: before.city,
+        address: before.address,
+        regionId: before.regionId,
+        countryId: before.countryId,
+        institutionTypeId: before.institutionTypeId,
+        campusId: before.campusId,
+        utilizationId: before.utilizationId,
+      },
+      after: validatedFields.data,
+    });
 
     revalidatePath('/universities');
     return { type: 'success', message: 'Los cambios quedaron guardados.' };
@@ -96,7 +130,7 @@ export async function updateUniversityAction(
     return {
       type: 'error',
       message:
-        'Algo salió mal al crear el torneo. Por favor, inténtalo de nuevo.',
+        'Algo salió mal al actualizar la institución. Por favor, inténtalo de nuevo.',
     };
   }
 }
@@ -108,7 +142,7 @@ const deleteArgsSchema = z.object({
 });
 
 export async function deleteUniversityAction(
-  agreementId: string
+  universityId: string
 ): Promise<FormState> {
   const authz = await checkPermission('write:university');
   if (!authz.authorized)
@@ -118,7 +152,7 @@ export async function deleteUniversityAction(
     };
 
   const parsed = deleteArgsSchema.safeParse({
-    id: agreementId,
+    id: universityId,
   });
   if (!parsed.success)
     return { type: 'error', message: '¡Datos inválidos para borrar!' };
@@ -126,9 +160,16 @@ export async function deleteUniversityAction(
   try {
     await dbDeleteUniversity(parsed.data.id);
 
+    createAuditLog({
+      userId: authz.userId,
+      action: 'delete',
+      entity: 'university',
+      entityId: parsed.data.id,
+    });
+
     revalidatePath(`/universities`);
-    redirect(`/universities`);
   } catch {
     return { type: 'error', message: 'Error al eliminar. Intenta de nuevo.' };
   }
+  redirect(`/universities`);
 }

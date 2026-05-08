@@ -16,15 +16,15 @@ import { ObservationLevel, ObservationOrigin } from '@/generated/prisma/client';
 import { CreateObservationModal } from './create-observation-modal';
 import { EditObservationModal } from './edit-observation-modal';
 import { DeleteObservationModal } from './delete-observation-modal';
-import { ObservationDTO } from '../db';
+import { ObservationsDTO } from '../db';
 
 // ─── Modal state ────────────────────────────────────────────────────────────
 
 type ModalState =
   | { type: 'closed' }
   | { type: 'create' }
-  | { type: 'edit'; item: ObservationDTO }
-  | { type: 'delete'; item: ObservationDTO };
+  | { type: 'edit'; item: ObservationsDTO }
+  | { type: 'delete'; item: ObservationsDTO };
 
 // ─── Level badge ─────────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ type ObservationContext = 'university' | 'agreement' | 'global';
 
 interface ObservationClientProps {
   slug: string;
-  observations: ObservationDTO[];
+  observations: ObservationsDTO[];
   context?: ObservationContext;
   canWrite: boolean;
 }
