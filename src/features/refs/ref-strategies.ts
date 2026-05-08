@@ -1,11 +1,15 @@
 // src/features/refs/ref-strategies.ts
 import 'server-only';
 import { prisma } from '@/lib/prisma';
+import { RefNotFoundError } from './db';
 import type { RefTableName } from './schemas';
 
 export interface RefStrategy {
   label: string;
-  create: (data: { value: string; color: string }) => Promise<unknown>;
+  create: (data: { value: string; color: string }) => Promise<{ id: number }>;
+  getById: (
+    id: number
+  ) => Promise<{ id: number; value: string; color: string | null }>;
   update: (
     id: number,
     data: { value?: string; color?: string }
@@ -15,13 +19,18 @@ export interface RefStrategy {
 
 function makeStrategy(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  model: { create: any; update: any; delete: any },
+  model: { create: any; findUnique: any; update: any; delete: any },
   label: string
 ): RefStrategy {
   return {
     label,
     create: (data) =>
       model.create({ data: { value: data.value, color: data.color } }),
+    getById: async (id) => {
+      const result = await model.findUnique({ where: { id } });
+      if (!result) throw new RefNotFoundError();
+      return result;
+    },
     update: (id, data) =>
       model.update({
         where: { id },
