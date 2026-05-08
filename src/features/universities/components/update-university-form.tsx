@@ -53,14 +53,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const fieldId = (field: UniversityFields) =>
   `edit-university-${field}` as const;
 const errorId = (field: UniversityFields) =>
   `edit-university-${field}-error` as const;
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 interface UpdateUniversityFormProps {
   university: UniversityDTO;
@@ -92,6 +88,8 @@ export function UpdateUniversityForm({
       isCatholic: university.isCatholic,
       city: university.city ?? undefined,
       address: university.address ?? undefined,
+      lat: university.lat ?? undefined,
+      lng: university.lng ?? undefined,
       regionId: university.regionId,
       countryId: university.countryId,
       institutionTypeId: university.institutionTypeId,
@@ -114,14 +112,10 @@ export function UpdateUniversityForm({
 
   useEffect(() => {
     if (!state) return;
-    switch (state.type) {
-      case 'error':
-        toast.error(state.message);
-        break;
-      case 'success':
-        toast.success(state.message);
-        router.push(`/universities/${university.slug}`);
-        break;
+    if (state.type === 'error') toast.error(state.message);
+    if (state.type === 'success') {
+      toast.success(state.message);
+      router.push(`/universities/${university.slug}`);
     }
   }, [state, router, university.slug]);
 
@@ -131,7 +125,6 @@ export function UpdateUniversityForm({
 
   const serverErrors = state?.type === 'validation' ? state.errors : undefined;
 
-  // Merge client + server errors
   const nameError = clientErrors.name?.message ?? serverErrors?.name?.[0];
   const startError = clientErrors.start?.message ?? serverErrors?.start?.[0];
   const expiresError =
@@ -143,6 +136,8 @@ export function UpdateUniversityForm({
   const addressError =
     clientErrors.address?.message ?? serverErrors?.address?.[0];
   const cityError = clientErrors.city?.message ?? serverErrors?.city?.[0];
+  const latError = clientErrors.lat?.message ?? serverErrors?.lat?.[0];
+  const lngError = clientErrors.lng?.message ?? serverErrors?.lng?.[0];
   const regionIdError =
     clientErrors.regionId?.message ?? serverErrors?.regionId?.[0];
   const countryIdError =
@@ -193,7 +188,6 @@ export function UpdateUniversityForm({
                 )}
               </Field>
 
-              {/* Start date */}
               <Field
                 data-invalid={!!startError}
                 className="flex flex-col gap-2"
@@ -252,18 +246,12 @@ export function UpdateUniversityForm({
                 )}
               </Field>
 
-              {/* Expires date */}
               <Field
                 data-invalid={!!expiresError}
                 className="flex flex-col gap-2"
               >
                 <FieldLabel htmlFor={fieldId('expires')}>
                   {UNIVERSITY_FIELDS.expires.label}
-                  {UNIVERSITY_FIELDS.expires.required && (
-                    <span aria-hidden className="text-destructive ml-0.5">
-                      *
-                    </span>
-                  )}
                 </FieldLabel>
                 <Controller
                   control={control}
@@ -285,9 +273,6 @@ export function UpdateUniversityForm({
                             'w-full justify-start text-left font-normal',
                             'data-[empty=true]:text-muted-foreground'
                           )}
-                          onChange={(date) => {
-                            field.onChange(date ?? undefined);
-                          }}
                         >
                           <CalendarIcon />
                           {field.value ? (
@@ -315,7 +300,6 @@ export function UpdateUniversityForm({
                 )}
               </Field>
 
-              {/* Is Catholic */}
               <Field orientation="horizontal" data-invalid={!!isCatholicError}>
                 <Controller
                   control={control}
@@ -353,11 +337,6 @@ export function UpdateUniversityForm({
               <Field data-invalid={!!webPageError}>
                 <FieldLabel htmlFor={fieldId('webPage')}>
                   {UNIVERSITY_FIELDS.webPage.label}
-                  {UNIVERSITY_FIELDS.webPage.required && (
-                    <span aria-hidden className="text-destructive ml-0.5">
-                      *
-                    </span>
-                  )}
                 </FieldLabel>
                 <Input
                   id={fieldId('webPage')}
@@ -474,11 +453,6 @@ export function UpdateUniversityForm({
               <Field data-invalid={!!cityError}>
                 <FieldLabel htmlFor={fieldId('city')}>
                   {UNIVERSITY_FIELDS.city.label}
-                  {UNIVERSITY_FIELDS.city.required && (
-                    <span aria-hidden className="text-destructive ml-0.5">
-                      *
-                    </span>
-                  )}
                 </FieldLabel>
                 <Input
                   id={fieldId('city')}
@@ -498,11 +472,6 @@ export function UpdateUniversityForm({
               <Field data-invalid={!!addressError}>
                 <FieldLabel htmlFor={fieldId('address')}>
                   {UNIVERSITY_FIELDS.address.label}
-                  {UNIVERSITY_FIELDS.address.required && (
-                    <span aria-hidden className="text-destructive ml-0.5">
-                      *
-                    </span>
-                  )}
                 </FieldLabel>
                 <Input
                   id={fieldId('address')}
@@ -520,6 +489,53 @@ export function UpdateUniversityForm({
                   <FieldError id={errorId('address')}>
                     {addressError}
                   </FieldError>
+                )}
+              </Field>
+
+              {/* Coordinates — both or neither */}
+              <Field data-invalid={!!latError}>
+                <FieldLabel htmlFor={fieldId('lat')}>
+                  {UNIVERSITY_FIELDS.lat.label}
+                </FieldLabel>
+                <Input
+                  id={fieldId('lat')}
+                  type="number"
+                  step="any"
+                  placeholder="ej. 40.4168"
+                  disabled={isPending}
+                  aria-invalid={!!latError}
+                  aria-describedby={latError ? errorId('lat') : undefined}
+                  {...register('lat', {
+                    setValueAs: (v) =>
+                      v === '' || v === null ? undefined : parseFloat(v),
+                  })}
+                />
+                <FieldDescription>Decimal WGS-84 (-90 a 90)</FieldDescription>
+                {latError && (
+                  <FieldError id={errorId('lat')}>{latError}</FieldError>
+                )}
+              </Field>
+
+              <Field data-invalid={!!lngError}>
+                <FieldLabel htmlFor={fieldId('lng')}>
+                  {UNIVERSITY_FIELDS.lng.label}
+                </FieldLabel>
+                <Input
+                  id={fieldId('lng')}
+                  type="number"
+                  step="any"
+                  placeholder="ej. -3.7038"
+                  disabled={isPending}
+                  aria-invalid={!!lngError}
+                  aria-describedby={lngError ? errorId('lng') : undefined}
+                  {...register('lng', {
+                    setValueAs: (v) =>
+                      v === '' || v === null ? undefined : parseFloat(v),
+                  })}
+                />
+                <FieldDescription>Decimal WGS-84 (-180 a 180)</FieldDescription>
+                {lngError && (
+                  <FieldError id={errorId('lng')}>{lngError}</FieldError>
                 )}
               </Field>
             </FieldSet>

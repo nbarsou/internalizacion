@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { customAlphabet } from 'nanoid';
-
 import { prisma } from '@/lib/prisma';
 import { UniversityInput } from './schemas';
 import { toSlug } from '@/lib/slugify';
@@ -48,12 +47,12 @@ export async function validateRefs(data: {
       }),
     ]);
 
-  // If any of the promises return null, someone likely tampered with the form payload
   if (!region || !country || !institutionType || !campus || !utilization) {
     throw new InvalidReferenceError();
   }
 }
-// ── Create ────────────────────────────────────────────────────────────────
+
+// ── Create ────────────────────────────────────────────────────────────────────
 
 export async function dbCreateUniversity(data: UniversityInput) {
   const baseSlug = toSlug(data.name);
@@ -63,7 +62,7 @@ export async function dbCreateUniversity(data: UniversityInput) {
 
     try {
       return await prisma.$transaction(async (tx) => {
-        const university = await tx.university.create({
+        return tx.university.create({
           data: {
             slug,
             name: data.name,
@@ -73,6 +72,8 @@ export async function dbCreateUniversity(data: UniversityInput) {
             web_page: data.webPage,
             city: data.city,
             address: data.address,
+            lat: data.lat ?? null,
+            lng: data.lng ?? null,
             regionId: data.regionId,
             countryId: data.countryId,
             institutionTypeId: data.institutionTypeId,
@@ -81,25 +82,22 @@ export async function dbCreateUniversity(data: UniversityInput) {
           },
           select: { slug: true },
         });
-
-        return university;
       });
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        continue; // any P2002 from this transaction = slug collision, retry
+        continue;
       }
       throw e;
     }
   }
-  // 5 failures = slug space exhausted for this name (36^4 = 1.6M per base)
-  console.log(`Could not generate a unique slug for: ${baseSlug}`);
+  console.error(`Could not generate a unique slug for: ${baseSlug}`);
   throw new Error(`Could not generate a unique slug for: ${baseSlug}`);
 }
 
-// ── Read ────────────────────────────────────────────────────────────────
+// ── Read ──────────────────────────────────────────────────────────────────────
 
 export async function dbGetUniversities() {
   return prisma.university.findMany({
@@ -110,23 +108,17 @@ export async function dbGetUniversities() {
       institutionType: true,
       campus: true,
       utilization: true,
-      contacts: true, // ← was missing
-      observations: true, // ← was missing
+      contacts: true,
+      observations: true,
       _count: { select: { agreements: true } },
       agreements: {
         where: { deletedAt: null },
         include: {
           type: true,
-          status: true, // ← was missing
-          observations: true, // ← was missing
-          beneficiaries: {
-            // ← was missing
-            include: { beneficiary: true },
-          },
-          attrs: {
-            // ← was missing
-            include: { attr: true },
-          },
+          status: true,
+          observations: true,
+          beneficiaries: { include: { beneficiary: true } },
+          attrs: { include: { attr: true } },
         },
       },
     },
@@ -134,7 +126,6 @@ export async function dbGetUniversities() {
   });
 }
 
-// keep UniversitiesDTO as the array form if anything else uses it
 export type UniversitiesDTO = Awaited<
   ReturnType<typeof dbGetUniversities>
 >[number];
@@ -149,38 +140,28 @@ export async function dbGetUniversityBySlug(slug: string) {
       campus: true,
       utilization: true,
       _count: { select: { agreements: true } },
-
-      contacts: {
-        // Removed the `include` block here. Prisma fetches standard columns
-        // (concernType, valueType, name, value) automatically.
-        orderBy: { concernType: 'asc' },
-      },
-
+      contacts: { orderBy: { concernType: 'asc' } },
       agreements: {
         include: {
-          type: true, // Assuming this is a relation
-          status: true, // Assuming this is a relation
+          type: true,
+          status: true,
           attrs: { include: { attr: true } },
           beneficiaries: { include: { beneficiary: true } },
           observations: true,
         },
         orderBy: { createdAt: 'desc' },
       },
-
-      observations: {
-        orderBy: { createdAt: 'desc' },
-      },
+      observations: { orderBy: { createdAt: 'desc' } },
     },
   });
 
   if (!university) throw new UniversityNotFoundError();
-
   return university;
 }
 
 export type UniversityDTO = Awaited<ReturnType<typeof dbGetUniversityBySlug>>;
 
-// ── Update ────────────────────────────────────────────────────────────────
+// ── Update ────────────────────────────────────────────────────────────────────
 
 export async function dbUpdateUniversity(slug: string, data: UniversityInput) {
   const result = await prisma.university.updateMany({
@@ -193,6 +174,8 @@ export async function dbUpdateUniversity(slug: string, data: UniversityInput) {
       web_page: data.webPage,
       city: data.city,
       address: data.address,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
       regionId: data.regionId,
       countryId: data.countryId,
       institutionTypeId: data.institutionTypeId,
@@ -203,8 +186,7 @@ export async function dbUpdateUniversity(slug: string, data: UniversityInput) {
   if (result.count === 0) throw new UniversityNotFoundError();
 }
 
-// ── Delete ────────────────────────────────────────────────────────────────
-
+// ── Delete  ─────────────────────────────────────────────────────────────
 export async function dbDeleteUniversity(id: string) {
   const result = await prisma.university.deleteMany({
     where: { id },
